@@ -8,8 +8,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { EditorContent, useEditor } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
 import {
   Dialog,
   DialogContent,
@@ -62,6 +63,146 @@ interface AnnouncementFormData {
   expire_at: string;
 }
 
+const stripHtml = (value: string) =>
+  value.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+
+interface RichTextEditorProps {
+  value: string;
+  onChange: (value: string) => void;
+}
+
+const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: value || "",
+    editorProps: {
+      attributes: {
+        class:
+          "min-h-[180px] w-full bg-white px-4 py-3 text-[15px] leading-7 text-slate-700 focus:outline-none",
+        "data-placeholder": "Description",
+      },
+    },
+    onUpdate: ({ editor }) => {
+      onChange(editor.getHTML());
+    },
+  });
+
+  useEffect(() => {
+    if (!editor) return;
+
+    const html = editor.getHTML();
+    if (value !== html) {
+      editor.commands.setContent(value || "", { emitUpdate: false });
+    }
+  }, [editor, value]);
+
+  if (!editor) {
+    return null;
+  }
+
+  return (
+    <div className="overflow-hidden rounded-[18px] border border-slate-300 bg-white shadow-[0_1px_0_rgba(15,23,42,0.04)]">
+      <div className="flex items-center gap-2 border-b border-slate-300 bg-white px-3 py-2">
+        <button
+          type="button"
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-xl font-normal text-slate-700 transition hover:bg-slate-100"
+        >
+          ↵
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          className={
+            editor.isActive("bold")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg font-bold text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          B
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          className={
+            editor.isActive("italic")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg italic text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-lg italic text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          I
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleUnderline().run()}
+          className={
+            editor.isActive("underline")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg font-medium text-white underline"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-lg font-medium text-slate-700 transition hover:bg-slate-100 underline"
+          }
+        >
+          U
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          className={
+            editor.isActive("bulletList")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-xl text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          ≡
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          className={
+            editor.isActive("orderedList")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-lg text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          1.
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleBlockquote().run()}
+          className={
+            editor.isActive("blockquote")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-lg text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-xl text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          “
+        </button>
+        <button
+          type="button"
+          onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+          className={
+            editor.isActive("codeBlock")
+              ? "flex h-8 w-8 items-center justify-center rounded-full bg-slate-800 text-sm font-semibold text-white"
+              : "flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+          }
+        >
+          &lt;/&gt;
+        </button>
+        <button
+          type="button"
+          className="ml-auto flex h-8 w-8 items-center justify-center rounded-full text-xl text-slate-600 transition hover:bg-slate-100"
+        >
+          🔗
+        </button>
+      </div>
+      <div className="bg-white text-slate-700">
+        <EditorContent
+          editor={editor}
+          className="[&_.ProseMirror]:min-h-[160px] [&_.ProseMirror]:px-4 [&_.ProseMirror]:py-3 [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-7 [&_.ProseMirror]:text-slate-700 [&_.ProseMirror]:empty:before:content-[attr(data-placeholder)] [&_.ProseMirror]:empty:before:text-slate-400 [&_.ProseMirror]:empty:before:font-medium [&_.ProseMirror]:empty:before:text-[15px] [&_.ProseMirror_p]:my-0 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.ProseMirror_u]:underline"
+        />
+      </div>
+    </div>
+  );
+};
+
 const Announcement = () => {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,7 +246,9 @@ const Announcement = () => {
                 ? "event"
                 : "general",
           priority: item.is_active ? "high" : "medium",
-          description: item.content.substring(0, 100) + "...",
+          description: `${stripHtml(item.content || "").slice(0, 100)}${
+            stripHtml(item.content || "").length > 100 ? "..." : ""
+          }`,
         }));
         setAnnouncements(mapped);
       } else {
@@ -120,6 +263,13 @@ const Announcement = () => {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    const plainContent = stripHtml(formData.content);
+    if (!plainContent) {
+      toast.error("Announcement content is required.");
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -153,6 +303,13 @@ const Announcement = () => {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedAnnouncement) return;
+
+    const plainContent = stripHtml(formData.content);
+    if (!plainContent) {
+      toast.error("Announcement content is required.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const response = await api.post(
@@ -447,9 +604,10 @@ const Announcement = () => {
                     <h3 className="text-sm font-semibold text-slate-600 mb-3">
                       Details
                     </h3>
-                    <p className="text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                      {selectedAnnouncement.content}
-                    </p>
+                    <div
+                      className="text-slate-700 leading-relaxed break-words [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:font-semibold [&_em]:italic"
+                      dangerouslySetInnerHTML={{ __html: selectedAnnouncement.content }}
+                    />
                   </div>
 
                   {/* Actions */}
@@ -497,12 +655,10 @@ const Announcement = () => {
             </div>
             <div>
               <label className="text-sm font-medium">Content</label>
-              <Textarea
-                required
-                rows={5}
+              <RichTextEditor
                 value={formData.content}
-                onChange={(e) =>
-                  setFormData({ ...formData, content: e.target.value })
+                onChange={(content) =>
+                  setFormData({ ...formData, content })
                 }
               />
             </div>
@@ -570,12 +726,10 @@ const Announcement = () => {
             </div>
             <div>
               <label className="text-sm font-medium">Content</label>
-              <Textarea
-                required
-                rows={5}
+              <RichTextEditor
                 value={formData.content}
-                onChange={(e) =>
-                  setFormData({ ...formData, content: e.target.value })
+                onChange={(content) =>
+                  setFormData({ ...formData, content })
                 }
               />
             </div>

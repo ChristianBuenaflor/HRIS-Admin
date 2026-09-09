@@ -45,6 +45,9 @@ export interface LeaveType extends BaseEntity {
     defaultDays: number;
     requiresApproval: boolean;
     description: string;
+    isPaid?: boolean;
+    employeeIds?: number[];
+    isActive?: boolean;
 }
 
 // Benefit Type

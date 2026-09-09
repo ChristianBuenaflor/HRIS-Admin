@@ -3,9 +3,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Calendar, Save, Download } from 'lucide-react';
+import { Plus, Trash2, Calendar, Save, Download, Pencil, X } from 'lucide-react';
 import type { StepComponentProps } from '../setupManagerTypes'
 import { toast } from 'sonner';
 import api from '@/utils/axios';
@@ -21,6 +24,7 @@ interface BackendLeaveType {
     is_archived: boolean;
     created_at: string;
     updated_at: string;
+    assigned_employees?: AssignedEmployee[];
 }
 
 interface LeaveTypesResponse {
@@ -38,19 +42,67 @@ interface CreateLeaveTypeResponse {
     isSuccess: boolean;
     message: string;
     leave_type: BackendLeaveType;
+    assigned_employees?: AssignedEmployee[];
+    assignment_count?: number;
 }
 
+interface AssignedEmployee {
+    id: number;
+    employee_id: number;
+    leave_type_id: number;
+    allocated_days: number;
+    used_days: number;
+    remaining_days: number;
+    is_active: boolean;
+    is_archived: boolean;
+}
+
+interface EmployeeDropdownOption {
+    id: number;
+    name: string;
+}
+
+interface EmployeeDropdownResponse {
+    isSuccess: boolean;
+    message?: string;
+    data: EmployeeDropdownOption[];
+}
+
+interface ApiErrorResponse {
+    message?: string;
+    error?: string;
+    errors?: Record<string, string[] | string>;
+}
+
+type LeaveTypeForm = {
+    name: string;
+    maxDays: number;
+    isPaid: boolean;
+    description: string;
+    requiresApproval: boolean;
+    employeeIds: number[];
+    isActive: boolean;
+};
+
+const emptyLeaveTypeForm: LeaveTypeForm = {
+    name: '',
+    maxDays: 0,
+    isPaid: true,
+    description: '',
+    requiresApproval: true,
+    employeeIds: [],
+    isActive: true
+};
+
 export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSetupData }) => {
-    const [newLeave, setNewLeave] = useState({
-        name: '',
-        maxDays: 0,
-        isPaid: true,
-        description: '',
-        requiresApproval: true
-    });
+    const [newLeave, setNewLeave] = useState<LeaveTypeForm>(emptyLeaveTypeForm);
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [backendLeaveTypes, setBackendLeaveTypes] = useState<BackendLeaveType[]>([]);
+    const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<number | null>(null);
+    const [employees, setEmployees] = useState<EmployeeDropdownOption[]>([]);
+    const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+    const [assignedEmployeeIds, setAssignedEmployeeIds] = useState<Record<number, number[]>>({});
 
     // Convert backend data to frontend format
     const backendToFrontendFormat = (backendData: BackendLeaveType[]) => {
@@ -70,14 +122,39 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
         maxDays: number;
         isPaid: boolean;
         description: string;
+        isActive: boolean;
+        employeeIds: number[];
     }) => {
         return {
             leave_name: frontendData.name,
             max_days: frontendData.maxDays,
             is_paid: frontendData.isPaid,
             description: frontendData.description,
-            is_active: true,
+            is_active: frontendData.isActive,
+            employees: frontendData.employeeIds.map((employeeId) => ({
+                employee_id: employeeId,
+                allocated_days: frontendData.maxDays,
+            })),
         };
+    };
+
+    const loadEmployees = async () => {
+        try {
+            setIsLoadingEmployees(true);
+            const response = await api.get('/dropdown/employees');
+            const result: EmployeeDropdownResponse = response.data;
+
+            if (result.isSuccess) {
+                setEmployees(result.data || []);
+            } else {
+                toast.error(result.message || 'Failed to load employees');
+            }
+        } catch (error: any) {
+            console.error('Failed to load employees:', error);
+            toast.error(error.response?.data?.message || 'Failed to load employees');
+        } finally {
+            setIsLoadingEmployees(false);
+        }
     };
 
     // Load leave types from backend
@@ -89,6 +166,21 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
 
             if (result.isSuccess && result.leave_types) {
                 setBackendLeaveTypes(result.leave_types);
+                setAssignedEmployeeIds((currentAssignments) => {
+                    const loadedAssignments = result.leave_types.reduce<Record<number, number[]>>(
+                        (assignments, leaveType) => {
+                            if (leaveType.assigned_employees) {
+                                assignments[leaveType.id] = leaveType.assigned_employees.map(
+                                    (assignment) => assignment.employee_id
+                                );
+                            }
+                            return assignments;
+                        },
+                        {},
+                    );
+
+                    return { ...currentAssignments, ...loadedAssignments };
+                });
 
                 // Also update setupData with the loaded leave types
                 const frontendData = backendToFrontendFormat(result.leave_types);
@@ -98,7 +190,7 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                 });
 
             } else {
-                toast.error('Failed to load leave types');
+                setBackendLeaveTypes([]);
             }
 
             return result.leave_types;
@@ -109,6 +201,8 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
             if (error.response?.status !== 404) {
                 toast.error('Failed to load leave types');
             }
+
+            setBackendLeaveTypes([]);
 
             return [];
         } finally {
@@ -132,20 +226,40 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
             setIsSaving(true);
             const backendData = frontendToBackendFormat(newLeave);
 
-            const response = await api.post('/create/leave-types', backendData);
+            const response = editingLeaveTypeId === null
+                ? await api.post('/create/leave-types', backendData)
+                : await api.post(`/update/leave-types/${editingLeaveTypeId}`, {
+                    leave_name: backendData.leave_name,
+                    max_days: backendData.max_days,
+                    is_paid: backendData.is_paid,
+                    description: backendData.description,
+                    is_active: backendData.is_active,
+                    ...(backendData.employees.length > 0 && {
+                        employees: backendData.employees,
+                    }),
+                });
             const result: CreateLeaveTypeResponse = response.data;
 
             if (result.isSuccess) {
-                toast.success('Leave type created successfully');
+                if (result.assigned_employees) {
+                    setAssignedEmployeeIds((currentAssignments) => ({
+                        ...currentAssignments,
+                        [result.leave_type.id]: result.assigned_employees!.map(
+                            (assignment) => assignment.employee_id
+                        ),
+                    }));
+                }
+
+                const assignmentMessage = editingLeaveTypeId === null && result.assignment_count
+                    ? ` ${result.assignment_count} employee${result.assignment_count === 1 ? '' : 's'} assigned.`
+                    : '';
+                toast.success(editingLeaveTypeId === null
+                    ? `Leave type created successfully.${assignmentMessage}`
+                    : 'Leave type updated successfully');
 
                 // Clear the form
-                setNewLeave({
-                    name: '',
-                    maxDays: 0,
-                    isPaid: true,
-                    description: '',
-                    requiresApproval: true
-                });
+                setNewLeave(emptyLeaveTypeForm);
+                setEditingLeaveTypeId(null);
 
                 // Reload leave types from backend to get the updated list
                 await loadLeaveTypes();
@@ -157,16 +271,17 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
         } catch (error: any) {
             console.error('Failed to create leave type:', error);
 
-            // Handle duplicate leave name error
-            if (error.response?.status === 422) {
-                const errors = error.response.data.errors;
-                if (errors?.leave_name) {
-                    toast.error(`Leave type name already exists: ${errors.leave_name[0]}`);
-                } else {
-                    toast.error('Validation error occurred');
-                }
+            const data = error.response?.data as ApiErrorResponse | undefined;
+            if (error.response?.status === 422 || data?.errors) {
+                const validationMessages = Object.entries(data?.errors || {})
+                    .flatMap(([field, messages]) => {
+                        const values = Array.isArray(messages) ? messages : [messages];
+                        return values.map((message) => `${field}: ${message}`);
+                    });
+
+                toast.error(validationMessages.join(' ') || data?.message || 'Validation error occurred');
             } else {
-                const errorMessage = error.response?.data?.message || 'Failed to create leave type';
+                const errorMessage = data?.message || data?.error || 'Failed to create leave type';
                 toast.error(errorMessage);
             }
 
@@ -174,6 +289,26 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const editLeaveType = (leaveType: BackendLeaveType) => {
+        setEditingLeaveTypeId(leaveType.id);
+        setNewLeave({
+            name: leaveType.leave_name,
+            maxDays: leaveType.max_days,
+            isPaid: leaveType.is_paid,
+            description: leaveType.description || '',
+            requiresApproval: true,
+            employeeIds: assignedEmployeeIds[leaveType.id]
+                || leaveType.assigned_employees?.map((assignment) => assignment.employee_id)
+                || [],
+            isActive: leaveType.is_active
+        });
+    };
+
+    const cancelEditing = () => {
+        setEditingLeaveTypeId(null);
+        setNewLeave(emptyLeaveTypeForm);
     };
 
     // Archive leave type in backend
@@ -212,7 +347,9 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                         name: newLeave.name,
                         defaultDays: newLeave.maxDays,
                         requiresApproval: newLeave.requiresApproval,
-                        description: newLeave.description
+                        description: newLeave.description,
+                        isPaid: newLeave.isPaid,
+                        isActive: newLeave.isActive
                     }
                 ]
             });
@@ -221,7 +358,9 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                 maxDays: 0,
                 isPaid: true,
                 description: '',
-                requiresApproval: true
+                requiresApproval: true,
+                employeeIds: [],
+                isActive: true
             });
             toast.success('Leave type added to setup (will be saved later)');
         }
@@ -235,9 +374,19 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
         });
     };
 
+    const toggleEmployee = (employeeId: number, checked: boolean) => {
+        setNewLeave({
+            ...newLeave,
+            employeeIds: checked
+                ? [...newLeave.employeeIds, employeeId]
+                : newLeave.employeeIds.filter(id => id !== employeeId)
+        });
+    };
+
     // Load leave types when component mounts
     useEffect(() => {
         loadLeaveTypes();
+        loadEmployees();
     }, []);
 
     return (
@@ -268,7 +417,9 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
             <CardContent className="space-y-6">
                 {/* Add Leave Type Form */}
                 <div className="p-4 border rounded-lg space-y-3 bg-slate-50">
-                    <h4 className="font-medium">Add New Leave Type</h4>
+                    <h4 className="font-medium">
+                        {editingLeaveTypeId === null ? 'Add New Leave Type' : 'Edit Leave Type'}
+                    </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                         <Input
                             placeholder="Leave type name"
@@ -315,6 +466,43 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                         />
                     </div>
 
+                    <div className="space-y-2">
+                        <Label>Assign to Employees (optional)</Label>
+                        <div className="max-h-48 overflow-y-auto rounded-md border bg-white p-3">
+                            {isLoadingEmployees ? (
+                                <p className="text-sm text-muted-foreground">Loading employees...</p>
+                            ) : employees.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No employees available.</p>
+                            ) : (
+                                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                                    {employees.map((employee) => (
+                                        <label key={employee.id} className="flex items-center gap-2 text-sm">
+                                            <Checkbox
+                                                checked={newLeave.employeeIds.includes(employee.id)}
+                                                onCheckedChange={(checked) => toggleEmployee(employee.id, checked === true)}
+                                            />
+                                            <span>{employee.name}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Selected employees will be assigned this leave type with the configured maximum days when saved to the server.
+                        </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                        <Switch
+                            id="leave-type-active"
+                            checked={newLeave.isActive}
+                            onCheckedChange={(checked) => setNewLeave({ ...newLeave, isActive: checked })}
+                        />
+                        <Label htmlFor="leave-type-active">
+                            {newLeave.isActive ? 'Active leave type' : 'Inactive leave type'}
+                        </Label>
+                    </div>
+
                     <div className="flex gap-2">
                         <Button
                             onClick={addLeaveType}
@@ -322,17 +510,22 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                             disabled={isSaving}
                         >
                             <Save className="w-4 h-4 mr-2" />
-                            {isSaving ? 'Saving...' : 'Save to Server'}
+                            {isSaving ? 'Saving...' : editingLeaveTypeId === null ? 'Save to Server' : 'Update on Server'}
                         </Button>
 
-                        <Button
-                            onClick={addLeaveTypeToLocal}
-                            variant="outline"
-                            size="sm"
-                        >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add to Setup Only
-                        </Button>
+                        {editingLeaveTypeId !== null && (
+                            <Button onClick={cancelEditing} variant="ghost" size="sm" disabled={isSaving}>
+                                <X className="w-4 h-4 mr-2" />
+                                Cancel
+                            </Button>
+                        )}
+
+                        {editingLeaveTypeId === null && (
+                            <Button onClick={addLeaveTypeToLocal} variant="outline" size="sm">
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add to Setup Only
+                            </Button>
+                        )}
                     </div>
 
                     <p className="text-xs text-muted-foreground">
@@ -382,6 +575,14 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
+                                                onClick={() => editLeaveType(leaveType)}
+                                                title="Edit Leave Type"
+                                            >
+                                                <Pencil className="w-4 h-4" />
+                                            </Button>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
                                                 onClick={() => removeLeaveType(leaveType.id.toString())}
                                                 title="Archive Leave Type"
                                             >
@@ -405,6 +606,8 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                                     <TableHead>Leave Type</TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead>Default Days</TableHead>
+                                    <TableHead>Payment</TableHead>
+                                    <TableHead>Status</TableHead>
                                     <TableHead>Approval</TableHead>
                                     <TableHead className="w-20">Actions</TableHead>
                                 </TableRow>
@@ -417,6 +620,16 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                                             {leave.description || 'No description'}
                                         </TableCell>
                                         <TableCell>{leave.defaultDays} days</TableCell>
+                                        <TableCell>
+                                            <Badge variant={leave.isPaid ? "default" : "secondary"}>
+                                                {leave.isPaid ? 'Paid' : 'Unpaid'}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant={leave.isActive ? "default" : "secondary"}>
+                                                {leave.isActive ? 'Active' : 'Inactive'}
+                                            </Badge>
+                                        </TableCell>
                                         <TableCell>
                                             <Badge variant={leave.requiresApproval ? "default" : "secondary"}>
                                                 {leave.requiresApproval ? 'Required' : 'Auto'}
