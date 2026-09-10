@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Calendar, Save, Download, Pencil, X } from 'lucide-react';
+import { Plus, Trash2, Calendar, Save, Download, Pencil, X, Search } from 'lucide-react';
 import type { StepComponentProps } from '../setupManagerTypes'
 import { toast } from 'sonner';
 import api from '@/utils/axios';
@@ -25,6 +25,8 @@ interface BackendLeaveType {
     created_at: string;
     updated_at: string;
     assigned_employees?: AssignedEmployee[];
+    employee_leave_types?: AssignedEmployee[];
+    employeeLeaveTypes?: AssignedEmployee[];
 }
 
 interface LeaveTypesResponse {
@@ -94,6 +96,12 @@ const emptyLeaveTypeForm: LeaveTypeForm = {
     isActive: true
 };
 
+const getAssignedEmployees = (leaveType: BackendLeaveType) =>
+    leaveType.employee_leave_types
+    ?? leaveType.employeeLeaveTypes
+    ?? leaveType.assigned_employees
+    ?? [];
+
 export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSetupData }) => {
     const [newLeave, setNewLeave] = useState<LeaveTypeForm>(emptyLeaveTypeForm);
     const [isLoading, setIsLoading] = useState(false);
@@ -102,7 +110,12 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
     const [editingLeaveTypeId, setEditingLeaveTypeId] = useState<number | null>(null);
     const [employees, setEmployees] = useState<EmployeeDropdownOption[]>([]);
     const [isLoadingEmployees, setIsLoadingEmployees] = useState(false);
+    const [employeeSearch, setEmployeeSearch] = useState('');
     const [assignedEmployeeIds, setAssignedEmployeeIds] = useState<Record<number, number[]>>({});
+
+    const filteredEmployees = employees.filter((employee) =>
+        employee.name.toLowerCase().includes(employeeSearch.trim().toLowerCase())
+    );
 
     // Convert backend data to frontend format
     const backendToFrontendFormat = (backendData: BackendLeaveType[]) => {
@@ -125,13 +138,15 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
         isActive: boolean;
         employeeIds: number[];
     }) => {
+        const employeeIds = [...new Set(frontendData.employeeIds)];
+
         return {
             leave_name: frontendData.name,
             max_days: frontendData.maxDays,
             is_paid: frontendData.isPaid,
             description: frontendData.description,
             is_active: frontendData.isActive,
-            employees: frontendData.employeeIds.map((employeeId) => ({
+            employees: employeeIds.map((employeeId) => ({
                 employee_id: employeeId,
                 allocated_days: frontendData.maxDays,
             })),
@@ -169,11 +184,9 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                 setAssignedEmployeeIds((currentAssignments) => {
                     const loadedAssignments = result.leave_types.reduce<Record<number, number[]>>(
                         (assignments, leaveType) => {
-                            if (leaveType.assigned_employees) {
-                                assignments[leaveType.id] = leaveType.assigned_employees.map(
-                                    (assignment) => assignment.employee_id
-                                );
-                            }
+                            assignments[leaveType.id] = getAssignedEmployees(leaveType).map(
+                                (assignment) => assignment.employee_id
+                            );
                             return assignments;
                         },
                         {},
@@ -230,21 +243,20 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
                 ? await api.post('/create/leave-types', backendData)
                 : await api.post(`/update/leave-types/${editingLeaveTypeId}`, {
                     leave_name: backendData.leave_name,
+                    description: backendData.description,
                     max_days: backendData.max_days,
                     is_paid: backendData.is_paid,
-                    description: backendData.description,
                     is_active: backendData.is_active,
-                    ...(backendData.employees.length > 0 && {
-                        employees: backendData.employees,
-                    }),
+                    employees: backendData.employees,
                 });
             const result: CreateLeaveTypeResponse = response.data;
 
             if (result.isSuccess) {
-                if (result.assigned_employees) {
+                if (editingLeaveTypeId !== null && result.assigned_employees) {
+                    const assignedEmployees = result.assigned_employees;
                     setAssignedEmployeeIds((currentAssignments) => ({
                         ...currentAssignments,
-                        [result.leave_type.id]: result.assigned_employees!.map(
+                        [editingLeaveTypeId]: assignedEmployees.map(
                             (assignment) => assignment.employee_id
                         ),
                     }));
@@ -292,16 +304,26 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
     };
 
     const editLeaveType = (leaveType: BackendLeaveType) => {
+        const hasAssignmentRelationship =
+            leaveType.employee_leave_types !== undefined
+            || leaveType.employeeLeaveTypes !== undefined
+            || leaveType.assigned_employees !== undefined;
+        const employeeIds = hasAssignmentRelationship
+            ? getAssignedEmployees(leaveType).map((assignment) => assignment.employee_id)
+            : assignedEmployeeIds[leaveType.id] ?? [];
+
         setEditingLeaveTypeId(leaveType.id);
+        setAssignedEmployeeIds((currentAssignments) => ({
+            ...currentAssignments,
+            [leaveType.id]: employeeIds,
+        }));
         setNewLeave({
             name: leaveType.leave_name,
             maxDays: leaveType.max_days,
             isPaid: leaveType.is_paid,
             description: leaveType.description || '',
             requiresApproval: true,
-            employeeIds: assignedEmployeeIds[leaveType.id]
-                || leaveType.assigned_employees?.map((assignment) => assignment.employee_id)
-                || [],
+            employeeIds,
             isActive: leaveType.is_active
         });
     };
@@ -468,14 +490,25 @@ export const LeaveTypesStep: React.FC<StepComponentProps> = ({ setupData, setSet
 
                     <div className="space-y-2">
                         <Label>Assign to Employees (optional)</Label>
+                        <div className="relative">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                            <Input
+                                value={employeeSearch}
+                                onChange={(event) => setEmployeeSearch(event.target.value)}
+                                placeholder="Search employees..."
+                                className="pl-9 w-100"
+                            />
+                        </div>
                         <div className="max-h-48 overflow-y-auto rounded-md border bg-white p-3">
                             {isLoadingEmployees ? (
                                 <p className="text-sm text-muted-foreground">Loading employees...</p>
                             ) : employees.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">No employees available.</p>
+                            ) : filteredEmployees.length === 0 ? (
+                                <p className="text-sm text-muted-foreground">No employees match your search.</p>
                             ) : (
                                 <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                                    {employees.map((employee) => (
+                                    {filteredEmployees.map((employee) => (
                                         <label key={employee.id} className="flex items-center gap-2 text-sm">
                                             <Checkbox
                                                 checked={newLeave.employeeIds.includes(employee.id)}
