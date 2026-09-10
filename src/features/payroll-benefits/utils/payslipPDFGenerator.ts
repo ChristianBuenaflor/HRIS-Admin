@@ -1,7 +1,4 @@
 // utils/payslipPDFGenerator.ts
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-
 export interface PayslipData {
   employee_name: string;
   period: string;
@@ -25,6 +22,10 @@ export interface PayslipData {
 
 export const generatePayslipPDF = async (payslip: PayslipData): Promise<void> => {
   try {
+    const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+      import('jspdf'),
+      import('html2canvas'),
+    ]);
     const iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
     iframe.style.left = '-9999px';
@@ -348,6 +349,7 @@ export const generatePayslipPDF = async (payslip: PayslipData): Promise<void> =>
 // Ultra-simple version for thermal printers or quick printing
 export const generateSimplePayslipPDF = async (payslip: PayslipData): Promise<void> => {
   try {
+    const { default: jsPDF } = await import('jspdf');
     const pdf = new jsPDF('p', 'mm', 'a4');
 
     // Set font

@@ -1,21 +1,26 @@
-import Login from '@/auth/Login'
+import { lazy, Suspense } from 'react'
 import { useRoutes } from 'react-router-dom'
-import Layout from '@/components/Layout'
-import Dashboard from '@/features/dashboard/Dashboard'
-import SettingsComponent from '@/features/settings/SettingsComponent'
-import ReportAnalytics from '@/features/report-analytics/ReportAnalytics'
-import AttendanceLeaving from '@/features/attendance-leaving/AttendanceLeaving'
-import SetupManager from '@/features/setup-manager/SetupManager'
-import InitialSystemSetup from '@/features/setup-manager/pages/InitialSystemSetup'
-import LessonSetup from '@/features/setup-manager/pages/LessonSetup'
-import HolidaySetup from '@/features/setup-manager/pages/HolidaySetup'
-import Employees from '@/features/employees/Employees'
-import ChristmasBonus from '@/features/christmas-bonus/ChristmasBonus'
-import RecruitmentJobPostings from '@/features/job-posting/RecruitmentJobPostings'
-import RecruitmentOnboarding from '@/features/recruitment-onboarding/RecuitmentOnboarding'
-import { PayrollProcessing } from '@/features/payroll-benefits/PayrollProcessing'
-import { LoanManagement } from '@/features/loan-management/LoanManagement'
-import Announcement from '@/features/announcement/Announcement'
+
+const Login = lazy(() => import('@/auth/Login'))
+const Layout = lazy(() => import('@/components/Layout'))
+const Dashboard = lazy(() => import('@/features/dashboard/Dashboard'))
+const SettingsComponent = lazy(() => import('@/features/settings/SettingsComponent'))
+const ReportAnalytics = lazy(() => import('@/features/report-analytics/ReportAnalytics'))
+const AttendanceLeaving = lazy(() => import('@/features/attendance-leaving/AttendanceLeaving'))
+const SetupManager = lazy(() => import('@/features/setup-manager/SetupManager'))
+const InitialSystemSetup = lazy(() => import('@/features/setup-manager/pages/InitialSystemSetup'))
+const LessonSetup = lazy(() => import('@/features/setup-manager/pages/LessonSetup'))
+const HolidaySetup = lazy(() => import('@/features/setup-manager/pages/HolidaySetup'))
+const Employees = lazy(() => import('@/features/employees/Employees'))
+const ChristmasBonus = lazy(() => import('@/features/christmas-bonus/ChristmasBonus'))
+const RecruitmentJobPostings = lazy(() => import('@/features/job-posting/RecruitmentJobPostings'))
+const RecruitmentOnboarding = lazy(() => import('@/features/recruitment-onboarding/RecuitmentOnboarding'))
+const PayrollProcessing = lazy(() => import('@/features/payroll-benefits/PayrollProcessing').then(({ PayrollProcessing }) => ({ default: PayrollProcessing })))
+const LoanManagement = lazy(() => import('@/features/loan-management/LoanManagement').then(({ LoanManagement }) => ({ default: LoanManagement })))
+const Announcement = lazy(() => import('@/features/announcement/Announcement'))
+
+const LoadingScreen = () => <div className="flex min-h-screen items-center justify-center">Loading...</div>
+
 const MainRoutes = () => {
     const routes = useRoutes([
 
@@ -54,7 +59,7 @@ const MainRoutes = () => {
         },
     ])
 
-    return routes
+    return <Suspense fallback={<LoadingScreen />}>{routes}</Suspense>
 }
 
 export default MainRoutes

@@ -37,10 +37,6 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { BASE_URL_API } from "@/utils/BASE_URL_API";
-import * as XLSX from "xlsx";
-import { generatePayslipPDF } from "./utils/payslipPDFGenerator";
-
-import { saveAs } from "file-saver";
 import {
   Calculator,
   FileText,
@@ -539,6 +535,7 @@ export function PayrollProcessing() {
       };
 
       toast.loading("Generating PDF...", { id: "pdf-generation" });
+      const { generatePayslipPDF } = await import("./utils/payslipPDFGenerator");
       await generatePayslipPDF(pdfData);
       toast.success("Payslip PDF downloaded successfully!", {
         id: "pdf-generation",
@@ -573,6 +570,8 @@ export function PayrollProcessing() {
 
     setLoading(true);
     try {
+      const XLSX = await import("xlsx");
+      const { saveAs } = await import("file-saver");
       const response = await payrollAPI.getPayrollDetails(
         selectedPeriod.id,
         1,
