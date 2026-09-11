@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { FontSize, TextStyle } from "@tiptap/extension-text-style";
 import {
   Dialog,
   DialogContent,
@@ -73,7 +74,7 @@ interface RichTextEditorProps {
 
 const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
   const editor = useEditor({
-    extensions: [StarterKit],
+    extensions: [StarterKit, TextStyle, FontSize],
     content: value || "",
     editorProps: {
       attributes: {
@@ -103,12 +104,30 @@ const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
   return (
     <div className="overflow-hidden rounded-[18px] border border-slate-300 bg-white shadow-[0_1px_0_rgba(15,23,42,0.04)]">
       <div className="flex items-center gap-2 border-b border-slate-300 bg-white px-3 py-2">
-        <button
-          type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-300 bg-white text-xl font-normal text-slate-700 transition hover:bg-slate-100"
+        <select
+          aria-label="Font size"
+          value={editor.getAttributes("textStyle").fontSize ?? ""}
+          onChange={(event) => {
+            const fontSize = event.target.value;
+            const chain = editor.chain().focus();
+
+            if (fontSize) {
+              chain.setFontSize(fontSize).run();
+            } else {
+              chain.unsetFontSize().run();
+            }
+          }}
+          className="h-8 rounded-md border border-slate-300 bg-white px-2 text-sm text-slate-700 outline-none transition focus:border-slate-500"
         >
-          ↵
-        </button>
+          <option value="">Size</option>
+          <option value="12px">12</option>
+          <option value="14px">14</option>
+          <option value="16px">16</option>
+          <option value="18px">18</option>
+          <option value="24px">24</option>
+          <option value="32px">32</option>
+        </select>
+       
         <button
           type="button"
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -196,7 +215,7 @@ const RichTextEditor = ({ value, onChange }: RichTextEditorProps) => {
       <div className="bg-white text-slate-700">
         <EditorContent
           editor={editor}
-          className="[&_.ProseMirror]:min-h-[160px] [&_.ProseMirror]:px-4 [&_.ProseMirror]:py-3 [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-7 [&_.ProseMirror]:text-slate-700 [&_.ProseMirror]:empty:before:content-[attr(data-placeholder)] [&_.ProseMirror]:empty:before:text-slate-400 [&_.ProseMirror]:empty:before:font-medium [&_.ProseMirror]:empty:before:text-[15px] [&_.ProseMirror_p]:my-0 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.ProseMirror_u]:underline"
+          className="[&_.ProseMirror]:overflow-y-auto [&_.ProseMirror]:max-h-[500px] [&_.ProseMirror]:min-h-[160px] [&_.ProseMirror]:px-4 [&_.ProseMirror]:py-3 [&_.ProseMirror]:outline-none [&_.ProseMirror]:text-[15px] [&_.ProseMirror]:leading-7 [&_.ProseMirror]:text-slate-700 [&_.ProseMirror]:empty:before:content-[attr(data-placeholder)] [&_.ProseMirror]:empty:before:text-slate-400 [&_.ProseMirror]:empty:before:font-medium [&_.ProseMirror]:empty:before:text-[15px] [&_.ProseMirror_p]:my-0 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2 [&_.ProseMirror_li]:my-1 [&_.ProseMirror_strong]:font-semibold [&_.ProseMirror_em]:italic [&_.ProseMirror_u]:underline"
         />
       </div>
     </div>
@@ -246,9 +265,8 @@ const Announcement = () => {
                 ? "event"
                 : "general",
           priority: item.is_active ? "high" : "medium",
-          description: `${stripHtml(item.content || "").slice(0, 100)}${
-            stripHtml(item.content || "").length > 100 ? "..." : ""
-          }`,
+          description: `${stripHtml(item.content || "").slice(0, 100)}${stripHtml(item.content || "").length > 100 ? "..." : ""
+            }`,
         }));
         setAnnouncements(mapped);
       } else {
