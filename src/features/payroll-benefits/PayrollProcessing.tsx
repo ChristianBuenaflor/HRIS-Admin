@@ -692,27 +692,35 @@ export function PayrollProcessing() {
       );
 
       if (response.isSuccess) {
-        // Map the backend response to our Employee interface
-        const mappedEmployees = response.employees.map((emp: any) => {
-          const fullName = emp.full_name || "";
-          const nameParts = fullName.split(" ");
-          const firstName = nameParts[0] || "";
-          const lastName = nameParts.slice(1).join(" ") || "";
+        // The current attendance endpoint returns the employee list in `employees`.
+        const employees = Array.isArray(response.employees)
+          ? response.employees
+          : Array.isArray(response.data)
+            ? response.data
+            : [];
+        const mappedEmployees = employees.map((emp: any) => {
+          const firstName = emp.first_name || "";
+          const lastName = emp.last_name || "";
+          const department =
+            typeof emp.department === "string"
+              ? emp.department
+              : emp.department?.department_name || "N/A";
+          const position =
+            typeof emp.position === "string"
+              ? emp.position
+              : emp.position?.position_name || "N/A";
 
           return {
-            id: emp.employee_id?.toString() || "",
+            id: emp.id?.toString() || "",
             first_name: firstName,
             last_name: lastName,
-            full_name: fullName,
-            base_salary:
-              typeof emp.base_salary === "string"
-                ? parseFloat(emp.base_salary)
-                : emp.base_salary || 0,
-            position: emp.position || "N/A",
-            department: emp.department || "N/A",
+            full_name: `${firstName} ${lastName}`.trim(),
+            base_salary: Number(emp.base_salary) || 0,
+            position,
+            department,
             employment_status: "active",
-            days_worked: emp.days_worked || 0,
-            absences: emp.absences || 0,
+            days_worked: Number(emp.days_worked) || 0,
+            absences: Number(emp.absences) || 0,
           };
         });
 
