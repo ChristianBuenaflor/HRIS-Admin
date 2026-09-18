@@ -88,24 +88,39 @@ interface PayrollRecord {
   id: string;
   employee?: {
     id: string;
+    employee_id?: string;
     first_name: string;
     last_name: string;
-    position?: {
-      position_name: string;
-    };
-    department?: {
-      department_name: any;
-    };
-    position_name?: string;
+    email?: string;
+    department?: string;
+    position?: string;
+    base_salary?: number | string;
   };
-  daily_rate: number;
-  days_worked: number;
-  base_pay: number;
-  gross_base: number;
-  absences: number;
-  gross_pay: number;
-  total_deductions: number;
-  net_pay: number;
+  attendance: {
+    daily_rate: number | string;
+    days_worked: number;
+    absences: number;
+    total_late_minutes: number;
+    overtime_hours: number;
+  };
+  earnings: {
+    gross_base: number | string;
+    total_allowances: number | string;
+    overtime_hours: number | string;
+    night_diff_pay: number | string;
+    holiday_pay: number | string;
+    gross_pay: number | string;
+  };
+  deductions: {
+    total_loan_deductions: number | string;
+    total_late_deductions: number | string;
+    total_deductions: number | string;
+  };
+  payroll: {
+    gross_pay: number | string;
+    total_deductions: number | string;
+    net_pay: number | string;
+  };
   remarks?: string;
 }
 
@@ -120,6 +135,54 @@ interface PayrollEmployeeData {
   employee_id: number;
   days_worked: number;
   absences: number;
+}
+
+interface PayslipData {
+  employee_name: string;
+  employee_id: string;
+  employee_department?: string;
+  employee_position?: string;
+  period_name: string;
+  period: string;
+  pay_date: string;
+  daily_rate: number;
+  days_worked: number;
+  base_pay: number;
+  overtime_hours: number;
+  overtime_pay: number;
+  holiday_pay: number;
+  night_diff_pay: number;
+  gross_base: number;
+  total_allowances: number;
+  gross_pay: number;
+  total_loan_deductions: number;
+  total_late_deductions: number;
+  total_deductions: number;
+  net_pay: number;
+  paid_leave_days: number;
+  paid_leave_amount: number;
+  allowances: Array<{ allowance_type: string; allowance_amount: string }>;
+  deductions: Array<{
+    deduction_type: string;
+    deduction_amount: string;
+    loan_name?: string;
+  }>;
+  paid_leaves: Array<{
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    days: number;
+    amount: string;
+    reason?: string;
+  }>;
+  holidays: Array<{
+    holiday_id: number | string;
+    date: string;
+    title?: string | null;
+    holiday_type?: string | null;
+  }>;
+  generated_at: string;
+  remarks?: string | null;
 }
 
 // API Service Functions
@@ -193,10 +256,21 @@ const payrollAPI = {
   },
 
   // Get payroll details for a period
-  async getPayrollDetails(periodId: string, page = 1, perPage = 5) {
+  async getPayrollDetails(
+    periodId: string,
+    page = 1,
+    perPage = 5,
+    search = "",
+  ) {
     const token = localStorage.getItem("token");
+    const params = new URLSearchParams({
+      page: String(page),
+      per_page: String(perPage),
+    });
+    if (search.trim()) params.set("search", search.trim());
+
     const response = await fetch(
-      `${BASE_URL_API}/payroll/details/${periodId}?page=${page}&per_page=${perPage}`,
+      `${BASE_URL_API}/payroll/details/${periodId}?${params.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -272,10 +346,11 @@ export function PayrollProcessing() {
     null,
   );
   const [periodDetails, setPeriodDetails] = useState<PayrollRecord[]>([]);
-  const [showPayslip, setShowPayslip] = useState<any>(null);
+  const [showPayslip, setShowPayslip] = useState<PayslipData | null>(null);
   const [showGenerateDialog, setShowGenerateDialog] = useState(false);
   const [filterStatus, setFilterStatus] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [recordSearch, setRecordSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -409,6 +484,18 @@ export function PayrollProcessing() {
     });
   };
 
+  const formatMoney = (value: number | string | null | undefined) => {
+    const numericValue = Number(String(value ?? 0).replace(/,/g, ""));
+
+    return (Number.isFinite(numericValue) ? numericValue : 0).toLocaleString(
+      "en-PH",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      },
+    );
+  };
+
   // Load data on component mount – **NO LONGER** fetches employees here
   useEffect(() => {
     loadData();
@@ -467,6 +554,7 @@ export function PayrollProcessing() {
         periodId,
         page,
         pagination.per_page,
+        recordSearch,
       );
       if (response.isSuccess) {
         setPeriodDetails(response.payrolldetails || []);
@@ -501,6 +589,12 @@ export function PayrollProcessing() {
     }
   };
 
+  useEffect(() => {
+    if (selectedPeriod) {
+      loadPeriodDetails(selectedPeriod.id, 1);
+    }
+  }, [recordSearch]);
+
   const fetchPayrollDetails = async (page: number) => {
     if (selectedPeriod) {
       await loadPeriodDetails(selectedPeriod.id, page);
@@ -517,20 +611,21 @@ export function PayrollProcessing() {
       const pdfData = {
         employee_name: showPayslip.employee_name,
         period: showPayslip.period,
-        daily_rate: showPayslip.daily_rate,
-        days_worked: showPayslip.days_worked,
-        gross_base: showPayslip.gross_base || showPayslip.gross_pay,
-        gross_pay: showPayslip.gross_pay,
-        night_diff_pay: showPayslip.night_diff_pay,
-        total_allowances: showPayslip.total_allowances,
-        total_deductions: showPayslip.total_deductions,
-        net_pay: showPayslip.net_pay,
-        generated_at: showPayslip.generated_at,
+        daily_rate: formatMoney(showPayslip.daily_rate),
+        days_worked: String(showPayslip.days_worked),
+        gross_base: formatMoney(showPayslip.gross_base),
+        gross_pay: formatMoney(showPayslip.gross_pay),
+        night_diff_pay: formatMoney(showPayslip.night_diff_pay),
+        total_allowances: formatMoney(showPayslip.total_allowances),
+        total_deductions: formatMoney(showPayslip.total_deductions),
+        net_pay: formatMoney(showPayslip.net_pay),
+        generated_at: showPayslip.pay_date,
         allowances: showPayslip.allowances,
         deductions: showPayslip.deductions,
         employee: {
           department: showPayslip.employee_department,
           position: showPayslip.employee_position,
+          employee_id: showPayslip.employee_id,
         },
       };
 
@@ -552,7 +647,51 @@ export function PayrollProcessing() {
     try {
       const response = await payrollAPI.getPayslip(recordId);
       if (response.isSuccess) {
-        setShowPayslip(response.payslip);
+        const payslip = response.data;
+        const toNumber = (value: number | string | null | undefined) =>
+          Number(String(value ?? 0).replace(/,/g, "")) || 0;
+
+        if (!payslip) {
+          throw new Error("Payslip data was not returned");
+        }
+
+        const normalizedPayslip: PayslipData = {
+          employee_name: payslip.employee?.name || "N/A",
+          employee_id: String(payslip.employee?.employee_id || "N/A"),
+          period_name: payslip.payroll_period?.period_name || "N/A",
+          period: payslip.payroll_period?.period_range || "N/A",
+          pay_date: payslip.payroll_period?.pay_date || "N/A",
+          daily_rate: toNumber(payslip.pay?.daily_rate),
+          days_worked: toNumber(payslip.pay?.days_worked),
+          base_pay: toNumber(payslip.pay?.base_pay),
+          overtime_hours: toNumber(payslip.pay?.overtime_hours),
+          overtime_pay: toNumber(payslip.pay?.overtime_pay),
+          holiday_pay: toNumber(payslip.pay?.holiday_pay),
+          night_diff_pay: toNumber(payslip.pay?.night_diff_pay),
+          gross_base: toNumber(payslip.summary?.gross_base),
+          total_allowances: toNumber(payslip.summary?.total_allowances),
+          gross_pay: toNumber(payslip.summary?.gross_pay),
+          total_loan_deductions: toNumber(
+            payslip.summary?.total_loan_deductions,
+          ),
+          total_late_deductions: toNumber(
+            payslip.summary?.total_late_deductions,
+          ),
+          total_deductions: toNumber(payslip.summary?.total_deductions),
+          net_pay: toNumber(payslip.summary?.net_pay),
+          paid_leave_days: toNumber(payslip.summary?.paid_leave_days),
+          paid_leave_amount: toNumber(payslip.summary?.paid_leave_amount),
+          employee_department: payslip.employee?.department,
+          employee_position: payslip.employee?.position,
+          allowances: payslip.allowances || [],
+          deductions: payslip.deductions || [],
+          paid_leaves: payslip.paid_leaves || [],
+          holidays: payslip.holidays || [],
+          generated_at: payslip.payroll_period?.pay_date || "N/A",
+          remarks: payslip.remarks,
+        };
+
+        setShowPayslip(normalizedPayslip);
       } else {
         toast.error(response.message || "Failed to load payslip");
       }
@@ -592,18 +731,16 @@ export function PayrollProcessing() {
           `${record.employee?.first_name || ""} ${record.employee?.last_name || ""}`.trim() ||
           "N/A",
         Department:
-          record.employee?.department?.department_name ||
-          record.employee?.department ||
-          "N/A",
+          record.employee?.department || "N/A",
         Position:
-          record.employee?.position_name || record.employee?.position || "N/A",
-        "Daily Rate": record.daily_rate,
-        "Days Worked": record.days_worked,
-        Absences: record.absences,
-        "Gross Base": record.gross_base,
-        "Gross Pay": record.gross_pay,
-        "Total Deductions": record.total_deductions,
-        "Net Pay": record.net_pay,
+          record.employee?.position || "N/A",
+        "Daily Rate": record.attendance?.daily_rate,
+        "Days Worked": record.attendance?.days_worked,
+        Absences: record.attendance?.absences,
+        "Gross Base": record.earnings?.gross_base,
+        "Gross Pay": record.payroll?.gross_pay,
+        "Total Deductions": record.payroll?.total_deductions,
+        "Net Pay": record.payroll?.net_pay,
         Remarks: record.remarks || "No remarks",
         "Payroll Period": selectedPeriod.period_name,
         "Pay Date": formatDate(selectedPeriod.pay_date),
@@ -1097,11 +1234,20 @@ export function PayrollProcessing() {
 
             {/* Employee Table */}
             <div className="border rounded-lg">
-              <div className="p-4 bg-muted/50 border-b">
+              <div className="p-4 bg-muted/50 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <h3 className="font-semibold flex items-center gap-2">
                   <Users className="w-4 h-4" />
-                  Employee Payroll Records ({periodDetails.length} employees)
+                  Employee Payroll Records ({pagination.total} employees)
                 </h3>
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search employees..."
+                    className="pl-9 bg-background"
+                    value={recordSearch}
+                    onChange={(event) => setRecordSearch(event.target.value)}
+                  />
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <Table>
@@ -1155,57 +1301,36 @@ export function PayrollProcessing() {
                                 {record.employee?.last_name}
                               </span>
                               <span className="text-xs text-muted-foreground">
-                                ID: {record.employee?.id || "N/A"}
+                                ID: {record.employee?.employee_id || record.employee?.id || "N/A"}
                               </span>
                             </div>
                           </TableCell>
                           <TableCell className="min-w-[150px]">
-                            {record.employee?.department?.department_name ||
-                              (typeof record.employee?.department === "string"
-                                ? record.employee.department
-                                : "N/A")}
+                            {record.employee?.department || "N/A"}
                           </TableCell>
                           <TableCell className="min-w-[120px]">
-                            {typeof record.employee?.position === "string"
-                              ? record.employee.position
-                              : record.employee?.position?.position_name ||
-                                "N/A"}
+                            {record.employee?.position || "N/A"}
                           </TableCell>
                           <TableCell className="min-w-[100px]">
-                            ₱
-                            {record.daily_rate?.toLocaleString("en-PH", {
-                              minimumFractionDigits: 2,
-                            })}
+                            ₱{formatMoney(record.attendance.daily_rate)}
                           </TableCell>
                           <TableCell className="min-w-[100px] text-center">
-                            {record.days_worked}
+                            {record.attendance.days_worked}
                           </TableCell>
                           <TableCell className="min-w-[100px] text-center">
-                            {record.absences}
+                            {record.attendance.absences}
                           </TableCell>
                           <TableCell className="min-w-[140px]">
-                            ₱
-                            {record.gross_base?.toLocaleString("en-PH", {
-                              minimumFractionDigits: 2,
-                            })}
+                            ₱{formatMoney(record.earnings.gross_base)}
                           </TableCell>
                           <TableCell className="min-w-[140px]">
-                            ₱
-                            {record.gross_pay?.toLocaleString("en-PH", {
-                              minimumFractionDigits: 2,
-                            })}
+                            ₱{formatMoney(record.payroll.gross_pay)}
                           </TableCell>
                           <TableCell className="min-w-[140px]">
-                            ₱
-                            {record.total_deductions?.toLocaleString("en-PH", {
-                              minimumFractionDigits: 2,
-                            })}
+                            ₱{formatMoney(record.payroll.total_deductions)}
                           </TableCell>
                           <TableCell className="min-w-[140px] font-semibold">
-                            ₱
-                            {record.net_pay?.toLocaleString("en-PH", {
-                              minimumFractionDigits: 2,
-                            })}
+                            ₱{formatMoney(record.payroll.net_pay)}
                           </TableCell>
                           <TableCell className="min-w-[200px]">
                             {record.remarks ? (
@@ -2045,16 +2170,25 @@ export function PayrollProcessing() {
                       </span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-muted-foreground">Employee ID:</span>
+                      <span className="font-medium">
+                        {showPayslip.employee_id}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-muted-foreground">Period:</span>
+                      <span className="font-medium">
+                        {showPayslip.period_name}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Cutoff:</span>
                       <span className="font-medium">{showPayslip.period}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Daily Rate:</span>
                       <span className="font-medium">
-                        ₱
-                        {showPayslip.daily_rate?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.daily_rate)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -2081,10 +2215,7 @@ export function PayrollProcessing() {
                         Base Salary:
                       </span>
                       <span className="font-medium">
-                        ₱
-                        {showPayslip.base_pay?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.base_pay)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -2092,10 +2223,7 @@ export function PayrollProcessing() {
                         Total Deductions:
                       </span>
                       <span className="font-medium text-red-500">
-                        ₱
-                        {showPayslip.total_deductions?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.total_deductions)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -2103,12 +2231,7 @@ export function PayrollProcessing() {
                         Total Allowances:
                       </span>
                       <span className="font-medium text-green-500">
-                        ₱
-                        {(parseFloat(
-                          showPayslip.total_allowances?.replace(/,/g, ""),
-                        ) || 0).toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.total_allowances)}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -2116,27 +2239,19 @@ export function PayrollProcessing() {
                         Night Differential:
                       </span>
                       <span className="font-medium text-green-500">
-                        ₱
-                        {(parseFloat(
-                          showPayslip.night_diff_pay?.replace(/,/g, ""),
-                        ) || 0).toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.night_diff_pay)}
                       </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">Net Pay:</span>
                       <span className="font-medium text-blue-600">
-                        ₱
-                        {showPayslip.net_pay?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.net_pay)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Generated:</span>
+                      <span className="text-muted-foreground">Pay Date:</span>
                       <span className="font-medium">
-                        {showPayslip.generated_at}
+                        {formatDate(showPayslip.pay_date)}
                       </span>
                     </div>
                   </CardContent>
@@ -2152,24 +2267,36 @@ export function PayrollProcessing() {
                       EARNINGS
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="pt-4 space-y-3">
+                  <CardContent className="pt-4 space-y-3 text-sm">
                     <div>
                       <div className="flex justify-between">
                         <span>Basic Pay</span>
                         <span className="font-medium">
-                          ₱{" "}
-                          {showPayslip.base_pay?.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                          ₱{formatMoney(showPayslip.base_pay)}
                         </span>
                       </div>
                       <div className="flex justify-between mt-4">
                         <span>Night Differential</span>
                         <span className="font-medium">
-                          ₱{" "}
-                          {showPayslip.night_diff_pay?.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                          ₱{formatMoney(showPayslip.night_diff_pay)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between mt-4">
+                        <span>Overtime Pay</span>
+                        <span className="font-medium">
+                          ₱{formatMoney(showPayslip.overtime_pay)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between mt-4">
+                        <span>Holiday Pay</span>
+                        <span className="font-medium">
+                          ₱{formatMoney(showPayslip.holiday_pay)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between mt-4">
+                        <span>Paid Leave ({showPayslip.paid_leave_days} days)</span>
+                        <span className="font-medium">
+                          ₱{formatMoney(showPayslip.paid_leave_amount)}
                         </span>
                       </div>
                     </div>
@@ -2186,7 +2313,7 @@ export function PayrollProcessing() {
                           <div key={index} className="flex justify-between">
                             <span>{allowance.allowance_type}</span>
                             <span className="font-medium">
-                              ₱{allowance.allowance_amount}
+                              ₱{formatMoney(allowance.allowance_amount)}
                             </span>
                           </div>
                         ),
@@ -2201,10 +2328,7 @@ export function PayrollProcessing() {
                     <div className="flex justify-between pt-2">
                       <span className="font-bold">TOTAL EARNINGS:</span>
                       <span className="font-bold text-green-600">
-                        ₱
-                        {showPayslip.gross_pay?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.gross_pay)}
                       </span>
                     </div>
                   </CardContent>
@@ -2223,11 +2347,7 @@ export function PayrollProcessing() {
                         <div key={index} className="flex justify-between">
                           <span>{deduction.deduction_type}:</span>
                           <span className="font-medium">
-                            ₱
-                            {deduction.deduction_amount?.toLocaleString(
-                              "en-PH",
-                              { minimumFractionDigits: 2 },
-                            )}
+                            ₱{formatMoney(deduction.deduction_amount)}
                           </span>
                         </div>
                       ),
@@ -2236,15 +2356,77 @@ export function PayrollProcessing() {
                     <div className="flex justify-between pt-2">
                       <span className="font-bold">TOTAL DEDUCTIONS:</span>
                       <span className="font-bold text-red-600">
-                        ₱
-                        {showPayslip.total_deductions?.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        ₱{formatMoney(showPayslip.total_deductions)}
                       </span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
+
+              {showPayslip.paid_leaves.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Paid Leave Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {showPayslip.paid_leaves.map(
+                      (
+                        leave: PayslipData["paid_leaves"][number],
+                        index: number,
+                      ) => (
+                      <div
+                        key={`${leave.leave_type}-${leave.start_date}-${index}`}
+                        className="flex items-center justify-between gap-4 border-b last:border-0 pb-2 last:pb-0"
+                      >
+                        <div>
+                          <p className="font-medium">{leave.leave_type}</p>
+                          <p className="text-muted-foreground">
+                            {leave.start_date} to {leave.end_date} ({leave.days} days)
+                          </p>
+                        </div>
+                        <span className="font-medium">
+                          ₱{formatMoney(leave.amount)}
+                        </span>
+                      </div>
+                      ),
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {showPayslip.holidays.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4" />
+                      Holiday Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {showPayslip.holidays.map((holiday) => (
+                      <div
+                        key={holiday.holiday_id}
+                        className="flex items-center justify-between gap-4 border-b last:border-0 pb-2 last:pb-0"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {holiday.title || "Holiday"}
+                          </p>
+                          <p className="text-muted-foreground">
+                            {holiday.date}
+                          </p>
+                        </div>
+                        <span className="text-amber-700">
+                          {holiday.holiday_type || "Holiday"}
+                        </span>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Net Pay */}
               <Card>
@@ -2253,10 +2435,7 @@ export function PayrollProcessing() {
                     NET PAYABLE AMOUNT
                   </h3>
                   <div className="text-3xl font-bold text-blue-600">
-                    ₱
-                    {showPayslip.net_pay?.toLocaleString("en-PH", {
-                      minimumFractionDigits: 2,
-                    })}
+                    ₱{formatMoney(showPayslip.net_pay)}
                   </div>
                   <p className="text-sm text-blue-700 mt-2">
                     This amount will be deposited to your registered bank
