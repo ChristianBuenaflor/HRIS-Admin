@@ -180,6 +180,7 @@ interface PayslipData {
     date: string;
     title?: string | null;
     holiday_type?: string | null;
+    is_paid: boolean;
   }>;
   generated_at: string;
   remarks?: string | null;
@@ -2419,9 +2420,21 @@ export function PayrollProcessing() {
                             {holiday.date}
                           </p>
                         </div>
-                        <span className="text-amber-700">
-                          {holiday.holiday_type || "Holiday"}
-                        </span>
+                        <div className="flex flex-col items-end gap-1">
+                          <span className="text-amber-700">
+                            {holiday.holiday_type || "Holiday"}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={
+                              holiday.is_paid
+                                ? "border-green-200 bg-green-50 text-green-700"
+                                : "border-red-200 bg-red-50 text-red-700"
+                            }
+                          >
+                            {holiday.is_paid ? "Paid Holiday" : "Unpaid Holiday"}
+                          </Badge>
+                        </div>
                       </div>
                     ))}
                   </CardContent>
