@@ -39,4 +39,9 @@ export const leaveAPI = {
   delete: (id: string) => axios.delete(`${API_BASE_URL}/leaves/${id}`, {
     headers: { Authorization: `Bearer ${token}` },
   }),
+  getAllEmployeeLeaveBalances: (page = 1, perPage = 10) =>
+    axios.get(`${API_BASE_URL}/leaves/employee`, {
+      params: { page, per_page: perPage },
+      headers: { Authorization: `Bearer ${token}` },
+    }),
 };
