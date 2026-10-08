@@ -3,7 +3,39 @@ export interface PayslipData {
   employee_name: string;
   period: string;
   daily_rate: string;
+  hourly_rate?: string;
   days_worked: string;
+  base_pay?: string;
+  overtime_hours?: string;
+  overtime_rate?: string;
+  overtime_hourly_rate?: string;
+  overtime_pay?: string;
+  overtime_requests?: Array<{
+    id?: number | string;
+    overtime_date: string;
+    start_time: string;
+    end_time: string;
+    hours: number | string;
+    reason?: string | null;
+    status?: string;
+  }>;
+  holiday_pay?: string;
+  paid_leave_days?: string;
+  paid_leave_amount?: string;
+  paid_leaves?: Array<{
+    leave_type: string;
+    start_date: string;
+    end_date: string;
+    days: number | string;
+    amount: string;
+    reason?: string | null;
+  }>;
+  holidays?: Array<{
+    holiday_id?: number | string;
+    date: string;
+    title?: string | null;
+    holiday_type?: string | null;
+  }>;
   gross_base: string;
   gross_pay: string;
   night_diff_pay?: string;
@@ -12,7 +44,11 @@ export interface PayslipData {
   net_pay: string;
   generated_at: string;
   allowances?: Array<{ allowance_type: string; allowance_amount: string }>;
-  deductions?: Array<{ deduction_type: string; deduction_amount: string }>;
+  deductions?: Array<{
+    deduction_type: string;
+    deduction_amount: string;
+    loan_name?: string;
+  }>;
   employee?: {
     department?: string;
     position?: string;
@@ -228,6 +264,24 @@ export const generatePayslipPDF = async (payslip: PayslipData): Promise<void> =>
                     <td>Basic Salary (${payslip.days_worked} days @ ₱${payslip.daily_rate})</td>
                     <td class="amount">₱${payslip.gross_base}</td>
                   </tr>
+                  ${payslip.overtime_pay && Number(payslip.overtime_pay.replace(/,/g, '')) > 0 ? `
+                    <tr>
+                      <td>Overtime (${payslip.overtime_hours || '0'} hrs @ ${payslip.overtime_rate || '125%'})</td>
+                      <td class="amount">₱${payslip.overtime_pay}</td>
+                    </tr>
+                  ` : ''}
+                  ${payslip.holiday_pay && Number(payslip.holiday_pay.replace(/,/g, '')) > 0 ? `
+                    <tr>
+                      <td>Holiday Pay</td>
+                      <td class="amount">₱${payslip.holiday_pay}</td>
+                    </tr>
+                  ` : ''}
+                  ${payslip.paid_leave_amount && Number(payslip.paid_leave_amount.replace(/,/g, '')) > 0 ? `
+                    <tr>
+                      <td>Paid Leave (${payslip.paid_leave_days || '0'} day(s))</td>
+                      <td class="amount">₱${payslip.paid_leave_amount}</td>
+                    </tr>
+                  ` : ''}
                   ${payslip.night_diff_pay && Number(payslip.night_diff_pay.replace(/,/g, '')) > 0 ? `
                     <tr>
                       <td>Night Differential</td>
@@ -265,7 +319,7 @@ export const generatePayslipPDF = async (payslip: PayslipData): Promise<void> =>
                   ${payslip.deductions && payslip.deductions.length > 0
         ? payslip.deductions.map(deduction => `
                       <tr>
-                        <td>${deduction.deduction_type}</td>
+                        <td>${deduction.deduction_type}${deduction.loan_name ? ` (${deduction.loan_name})` : ''}</td>
                         <td class="amount">₱${deduction.deduction_amount}</td>
                       </tr>
                     `).join('')
@@ -284,6 +338,54 @@ export const generatePayslipPDF = async (payslip: PayslipData): Promise<void> =>
               </table>
             </div>
           </div>
+
+          ${(payslip.overtime_requests && payslip.overtime_requests.length > 0) || (payslip.paid_leaves && payslip.paid_leaves.length > 0) || (payslip.holidays && payslip.holidays.length > 0) ? `
+          <!-- Overtime, Leave & Holiday Details -->
+          <div class="table-section" style="margin-bottom: 6mm;">
+            <div class="section-title">OVERTIME, LEAVE & HOLIDAY DETAILS</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Details</th>
+                  <th style="width: 25mm">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${payslip.overtime_requests && payslip.overtime_requests.length > 0
+        ? payslip.overtime_requests.map(req => `
+                    <tr>
+                      <td>Overtime${req.status ? ` (${req.status})` : ''}</td>
+                      <td>${req.overtime_date} (${req.start_time} - ${req.end_time}, ${req.hours} hr(s))${req.reason ? ` - ${req.reason}` : ''}</td>
+                      <td class="amount">--</td>
+                    </tr>
+                  `).join('')
+        : ''
+      }
+                ${payslip.paid_leaves && payslip.paid_leaves.length > 0
+        ? payslip.paid_leaves.map(leave => `
+                    <tr>
+                      <td>${leave.leave_type}</td>
+                      <td>${leave.start_date} to ${leave.end_date} (${leave.days} day(s))${leave.reason ? ` - ${leave.reason}` : ''}</td>
+                      <td class="amount">₱${leave.amount}</td>
+                    </tr>
+                  `).join('')
+        : ''
+      }
+                ${payslip.holidays && payslip.holidays.length > 0
+        ? payslip.holidays.map(holiday => `
+                    <tr>
+                      <td>Holiday${holiday.holiday_type ? ` (${holiday.holiday_type})` : ''}</td>
+                      <td>${holiday.title || 'Holiday'} - ${holiday.date}</td>
+                      <td class="amount">--</td>
+                    </tr>
+                  `).join('')
+        : ''
+      }
+              </tbody>
+            </table>
+          </div>
+          ` : ''}
 
           <!-- Net Pay Summary -->
           <div class="summary-section">
@@ -395,6 +497,39 @@ export const generateSimplePayslipPDF = async (payslip: PayslipData): Promise<vo
     pdf.text(`₱${payslip.gross_base}`, 180, yPosition, { align: 'right' });
     yPosition += 4;
 
+    if (payslip.overtime_pay && Number(payslip.overtime_pay.replace(/,/g, '')) > 0) {
+      pdf.text(`Overtime (${payslip.overtime_hours || '0'} hrs @ ${payslip.overtime_rate || '125%'}):`, 25, yPosition);
+      pdf.text(`₱${payslip.overtime_pay}`, 180, yPosition, { align: 'right' });
+      yPosition += 4;
+
+      if (payslip.overtime_requests && payslip.overtime_requests.length > 0) {
+        pdf.setFontSize(8);
+        payslip.overtime_requests.forEach(req => {
+          pdf.text(`- ${req.overtime_date} (${req.start_time}-${req.end_time}, ${req.hours} hr(s))${req.status ? ` [${req.status}]` : ''}`, 30, yPosition);
+          yPosition += 4;
+        });
+        pdf.setFontSize(10);
+      }
+    }
+
+    if (payslip.holiday_pay && Number(payslip.holiday_pay.replace(/,/g, '')) > 0) {
+      pdf.text('Holiday Pay:', 25, yPosition);
+      pdf.text(`₱${payslip.holiday_pay}`, 180, yPosition, { align: 'right' });
+      yPosition += 4;
+    }
+
+    if (payslip.paid_leave_amount && Number(payslip.paid_leave_amount.replace(/,/g, '')) > 0) {
+      pdf.text(`Paid Leave (${payslip.paid_leave_days || '0'} day(s)):`, 25, yPosition);
+      pdf.text(`₱${payslip.paid_leave_amount}`, 180, yPosition, { align: 'right' });
+      yPosition += 4;
+    }
+
+    if (payslip.night_diff_pay && Number(payslip.night_diff_pay.replace(/,/g, '')) > 0) {
+      pdf.text('Night Differential:', 25, yPosition);
+      pdf.text(`₱${payslip.night_diff_pay}`, 180, yPosition, { align: 'right' });
+      yPosition += 4;
+    }
+
     // Allowances
     if (payslip.allowances && payslip.allowances.length > 0) {
       payslip.allowances.forEach(allowance => {
@@ -417,7 +552,7 @@ export const generateSimplePayslipPDF = async (payslip: PayslipData): Promise<vo
     pdf.setFont('helvetica', 'normal');
     if (payslip.deductions && payslip.deductions.length > 0) {
       payslip.deductions.forEach(deduction => {
-        pdf.text(`${deduction.deduction_type}:`, 25, yPosition);
+        pdf.text(`${deduction.deduction_type}${deduction.loan_name ? ` (${deduction.loan_name})` : ''}:`, 25, yPosition);
         pdf.text(`₱${deduction.deduction_amount}`, 180, yPosition, { align: 'right' });
         yPosition += 4;
       });

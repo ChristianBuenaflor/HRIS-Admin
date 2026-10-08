@@ -146,10 +146,22 @@ interface PayslipData {
   period: string;
   pay_date: string;
   daily_rate: number;
+  hourly_rate: number;
   days_worked: number;
   base_pay: number;
   overtime_hours: number;
+  overtime_rate: string;
+  overtime_hourly_rate: number;
   overtime_pay: number;
+  overtime_requests: Array<{
+    id: number | string;
+    overtime_date: string;
+    start_time: string;
+    end_time: string;
+    hours: number | string;
+    reason?: string | null;
+    status?: string;
+  }>;
   holiday_pay: number;
   night_diff_pay: number;
   gross_base: number;
@@ -168,19 +180,24 @@ interface PayslipData {
     loan_name?: string;
   }>;
   paid_leaves: Array<{
+    leave_id?: number | string;
+    leave_type_id?: number | string;
     leave_type: string;
     start_date: string;
     end_date: string;
     days: number;
     amount: string;
-    reason?: string;
+    reason?: string | null;
+    is_paid?: boolean;
+    status?: string;
   }>;
   holidays: Array<{
     holiday_id: number | string;
     date: string;
     title?: string | null;
     holiday_type?: string | null;
-    is_paid: boolean;
+    // Backend getPayslip does NOT return is_paid for holidays — optional.
+    is_paid?: boolean;
   }>;
   generated_at: string;
   remarks?: string | null;
@@ -613,7 +630,19 @@ export function PayrollProcessing() {
         employee_name: showPayslip.employee_name,
         period: showPayslip.period,
         daily_rate: formatMoney(showPayslip.daily_rate),
+        hourly_rate: formatMoney(showPayslip.hourly_rate),
         days_worked: String(showPayslip.days_worked),
+        base_pay: formatMoney(showPayslip.base_pay),
+        overtime_hours: String(showPayslip.overtime_hours),
+        overtime_rate: showPayslip.overtime_rate,
+        overtime_hourly_rate: formatMoney(showPayslip.overtime_hourly_rate),
+        overtime_pay: formatMoney(showPayslip.overtime_pay),
+        overtime_requests: showPayslip.overtime_requests,
+        holiday_pay: formatMoney(showPayslip.holiday_pay),
+        paid_leave_days: String(showPayslip.paid_leave_days),
+        paid_leave_amount: formatMoney(showPayslip.paid_leave_amount),
+        paid_leaves: showPayslip.paid_leaves,
+        holidays: showPayslip.holidays,
         gross_base: formatMoney(showPayslip.gross_base),
         gross_pay: formatMoney(showPayslip.gross_pay),
         night_diff_pay: formatMoney(showPayslip.night_diff_pay),
@@ -663,10 +692,28 @@ export function PayrollProcessing() {
           period: payslip.payroll_period?.period_range || "N/A",
           pay_date: payslip.payroll_period?.pay_date || "N/A",
           daily_rate: toNumber(payslip.pay?.daily_rate),
+          hourly_rate: toNumber(payslip.pay?.hourly_rate),
           days_worked: toNumber(payslip.pay?.days_worked),
           base_pay: toNumber(payslip.pay?.base_pay),
-          overtime_hours: toNumber(payslip.pay?.overtime_hours),
-          overtime_pay: toNumber(payslip.pay?.overtime_pay),
+          // Backend nests overtime under pay.overtime:
+          // { hours, rate, hourly_rate, pay, requests[] }
+          overtime_hours: toNumber(payslip.pay?.overtime?.hours),
+          overtime_rate: payslip.pay?.overtime?.rate || "125%",
+          overtime_hourly_rate: toNumber(payslip.pay?.overtime?.hourly_rate),
+          overtime_pay: toNumber(payslip.pay?.overtime?.pay),
+          // Backend overtime request breakdown:
+          // requests[]: { id, overtime_date, start_time, end_time, hours, reason, status }
+          overtime_requests: Array.isArray(payslip.pay?.overtime?.requests)
+            ? payslip.pay.overtime.requests.map((req: any) => ({
+                id: req.id,
+                overtime_date: req.overtime_date,
+                start_time: req.start_time,
+                end_time: req.end_time,
+                hours: Number(req.hours) || 0,
+                reason: req.reason ?? null,
+                status: req.status,
+              }))
+            : [],
           holiday_pay: toNumber(payslip.pay?.holiday_pay),
           night_diff_pay: toNumber(payslip.pay?.night_diff_pay),
           gross_base: toNumber(payslip.summary?.gross_base),
@@ -686,8 +733,32 @@ export function PayrollProcessing() {
           employee_position: payslip.employee?.position,
           allowances: payslip.allowances || [],
           deductions: payslip.deductions || [],
-          paid_leaves: payslip.paid_leaves || [],
-          holidays: payslip.holidays || [],
+          // Backend paid_leaves: { leave_id, leave_type_id, leave_type, start_date,
+          // end_date, days, amount, reason, is_paid, status }
+          paid_leaves: Array.isArray(payslip.paid_leaves)
+            ? payslip.paid_leaves.map((leave: any) => ({
+                leave_id: leave.leave_id,
+                leave_type_id: leave.leave_type_id,
+                leave_type: leave.leave_type || "Paid Leave",
+                start_date: leave.start_date,
+                end_date: leave.end_date,
+                days: Number(leave.days) || 0,
+                amount: String(leave.amount ?? "0.00"),
+                reason: leave.reason ?? null,
+                is_paid: leave.is_paid,
+                status: leave.status,
+              }))
+            : [],
+          // Backend holidays: { holiday_id, date, title, holiday_type } (no is_paid)
+          holidays: Array.isArray(payslip.holidays)
+            ? payslip.holidays.map((holiday: any) => ({
+                holiday_id: holiday.holiday_id,
+                date: holiday.date,
+                title: holiday.title ?? null,
+                holiday_type: holiday.holiday_type ?? null,
+                is_paid: holiday.is_paid,
+              }))
+            : [],
           generated_at: payslip.payroll_period?.pay_date || "N/A",
           remarks: payslip.remarks,
         };
@@ -1696,7 +1767,7 @@ export function PayrollProcessing() {
                 {newPayrollPeriod.cutoff_start_date &&
                   newPayrollPeriod.cutoff_end_date && (
                     <p className="text-xs text-green-600 mt-2">
-                      ✅ Days worked and absences are automatically computed
+                      ✓ Days worked and absences are automatically computed
                       from attendance records for this cutoff.
                     </p>
                   )}
@@ -2283,7 +2354,15 @@ export function PayrollProcessing() {
                         </span>
                       </div>
                       <div className="flex justify-between mt-4">
-                        <span>Overtime Pay</span>
+                        <span>
+                          Overtime Pay
+                          <span className="text-muted-foreground">
+                            {" "}
+                            ({showPayslip.overtime_hours} hr
+                            {showPayslip.overtime_hours === 1 ? "" : "s"} @{" "}
+                            {showPayslip.overtime_rate})
+                          </span>
+                        </span>
                         <span className="font-medium">
                           ₱{formatMoney(showPayslip.overtime_pay)}
                         </span>
@@ -2346,7 +2425,16 @@ export function PayrollProcessing() {
                     {showPayslip.deductions?.map(
                       (deduction: any, index: number) => (
                         <div key={index} className="flex justify-between">
-                          <span>{deduction.deduction_type}:</span>
+                          <span>
+                            {deduction.deduction_type}
+                            {deduction.loan_name && (
+                              <span className="text-muted-foreground">
+                                {" "}
+                                ({deduction.loan_name})
+                              </span>
+                            )}
+                            :
+                          </span>
                           <span className="font-medium">
                             ₱{formatMoney(deduction.deduction_amount)}
                           </span>
@@ -2363,6 +2451,50 @@ export function PayrollProcessing() {
                   </CardContent>
                 </Card>
               </div>
+
+              {showPayslip.overtime_requests.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Clock className="w-4 h-4" />
+                      Overtime Details
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-2 text-sm">
+                    {showPayslip.overtime_requests.map((req) => (
+                      <div
+                        key={req.id}
+                        className="flex items-center justify-between gap-4 border-b last:border-0 pb-2 last:pb-0"
+                      >
+                        <div>
+                          <p className="font-medium">
+                            {req.overtime_date} ({req.start_time} - {req.end_time}
+                            , {req.hours} hr{Number(req.hours) === 1 ? "" : "s"})
+                          </p>
+                          {req.reason && (
+                            <p className="text-muted-foreground italic">
+                              {req.reason}
+                            </p>
+                          )}
+                        </div>
+                        {req.status && (
+                          <Badge
+                            variant={
+                              req.status.toLowerCase() === "approved"
+                                ? "default"
+                                : req.status.toLowerCase() === "pending"
+                                  ? "secondary"
+                                  : "outline"
+                            }
+                          >
+                            {req.status}
+                          </Badge>
+                        )}
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
 
               {showPayslip.paid_leaves.length > 0 && (
                 <Card>
@@ -2385,8 +2517,14 @@ export function PayrollProcessing() {
                         <div>
                           <p className="font-medium">{leave.leave_type}</p>
                           <p className="text-muted-foreground">
-                            {leave.start_date} to {leave.end_date} ({leave.days} days)
+                            {leave.start_date} to {leave.end_date} ({leave.days} day
+                            {leave.days === 1 ? "" : "s"})
                           </p>
+                          {leave.reason && (
+                            <p className="text-muted-foreground italic">
+                              Reason: {leave.reason}
+                            </p>
+                          )}
                         </div>
                         <span className="font-medium">
                           ₱{formatMoney(leave.amount)}
@@ -2424,16 +2562,18 @@ export function PayrollProcessing() {
                           <span className="text-amber-700">
                             {holiday.holiday_type || "Holiday"}
                           </span>
-                          <Badge
-                            variant="outline"
-                            className={
-                              holiday.is_paid
-                                ? "border-green-200 bg-green-50 text-green-700"
-                                : "border-red-200 bg-red-50 text-red-700"
-                            }
-                          >
-                            {holiday.is_paid ? "Paid Holiday" : "Unpaid Holiday"}
-                          </Badge>
+                          {typeof holiday.is_paid === "boolean" && (
+                            <Badge
+                              variant="outline"
+                              className={
+                                holiday.is_paid
+                                  ? "border-green-200 bg-green-50 text-green-700"
+                                  : "border-red-200 bg-red-50 text-red-700"
+                              }
+                            >
+                              {holiday.is_paid ? "Paid Holiday" : "Unpaid Holiday"}
+                            </Badge>
+                          )}
                         </div>
                       </div>
                     ))}

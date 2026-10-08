@@ -45,3 +45,20 @@ export const leaveAPI = {
       headers: { Authorization: `Bearer ${token}` },
     }),
 };
+
+// Overtime API (Admin)
+export const overtimeAPI = {
+  getAll: (params?: { status?: string; employee_id?: number | string; page?: number; per_page?: number }) =>
+    axios.get(`${API_BASE_URL}/overtime/requests`, {
+      params,
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  approve: (id: number | string) =>
+    axios.post(`${API_BASE_URL}/overtime/${id}/approve`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+  reject: (id: number | string, rejection_reason: string) =>
+    axios.post(`${API_BASE_URL}/overtime/${id}/reject`, { rejection_reason }, {
+      headers: { Authorization: `Bearer ${token}` },
+    }),
+};

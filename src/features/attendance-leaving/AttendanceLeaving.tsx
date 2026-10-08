@@ -4,7 +4,8 @@ import AttendanceTracker from "./components/AttendanceTracker";
 import LeaveManagement from "./components/LeaveManagement";
 import DTRAdjustments from "./components/DTRAdjustments";
 import ForgotClockInRequest from "./components/ForgotClockInRequest";
-import { Clock, Calendar, FileCheck, FileClock } from 'lucide-react';
+import Overtime from "./components/Overtime";
+import { Clock, Calendar, FileCheck, FileClock, Timer } from 'lucide-react';
 
 const AttendanceLeaving = () => {
     const [activeTab, setActiveTab] = useState('attendance');
@@ -40,6 +41,10 @@ const AttendanceLeaving = () => {
                             <Calendar className="w-4 h-4" />
                             Leave
                         </TabsTrigger>
+                        <TabsTrigger value="overtime" className="gap-2">
+                            <Timer className="w-4 h-4" />
+                            Overtime
+                        </TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -57,6 +62,10 @@ const AttendanceLeaving = () => {
                 
                 <TabsContent value="forgot-clock-in" className="mt-0">
                     <ForgotClockInRequest />
+                </TabsContent>
+
+                <TabsContent value="overtime" className="mt-0">
+                    <Overtime />
                 </TabsContent>
             </Tabs>
         </div>
