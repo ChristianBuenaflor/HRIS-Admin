@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
-import { useRoutes } from 'react-router-dom'
+import { lazy, Suspense, type ReactNode } from 'react'
+import { Navigate, useRoutes } from 'react-router-dom'
+import { hasRouteAccess } from '@/utils/role'
 
 const Login = lazy(() => import('@/auth/Login'))
 const Layout = lazy(() => import('@/components/Layout'))
@@ -21,6 +22,13 @@ const Announcement = lazy(() => import('@/features/announcement/Announcement'))
 
 const LoadingScreen = () => <div className="flex min-h-screen items-center justify-center">Loading...</div>
 
+const RequireAccess = ({ path, children }: { path: string; children: ReactNode }) => {
+    if (!hasRouteAccess(path)) {
+        return <Navigate to="/dashboard" replace />;
+    }
+    return <>{children}</>;
+};
+
 const MainRoutes = () => {
     const routes = useRoutes([
 
@@ -33,16 +41,16 @@ const MainRoutes = () => {
             element: <Layout />,
             children: [
                 { path: "dashboard", element: <Dashboard /> },
-                { path: "settings", element: <SettingsComponent /> },
-                { path: "reports-analytics", element: <ReportAnalytics /> },
+                { path: "settings", element: <RequireAccess path="/settings"><SettingsComponent /></RequireAccess> },
+                { path: "reports-analytics", element: <RequireAccess path="/reports-analytics"><ReportAnalytics /></RequireAccess> },
                 { path: "setup-manager", element: <SetupManager /> },
                 { path: "attendance-leaving", element: <AttendanceLeaving /> },
-                { path: "employees", element: <Employees /> },
-                { path: "job-posting", element: <RecruitmentJobPostings /> },
+                { path: "employees", element: <RequireAccess path="/employees"><Employees /></RequireAccess> },
+                { path: "job-posting", element: <RequireAccess path="/job-posting"><RecruitmentJobPostings /></RequireAccess> },
                 { path: "payroll", element: <PayrollProcessing /> },
-                { path: "christmas-bonus", element: <ChristmasBonus /> },
-                { path: "loan-management", element: <LoanManagement /> },
-                { path: "recruitment-onboarding", element: <RecruitmentOnboarding /> },
+                { path: "christmas-bonus", element: <RequireAccess path="/christmas-bonus"><ChristmasBonus /></RequireAccess> },
+                { path: "loan-management", element: <RequireAccess path="/loan-management"><LoanManagement /></RequireAccess> },
+                { path: "recruitment-onboarding", element: <RequireAccess path="/recruitment-onboarding"><RecruitmentOnboarding /></RequireAccess> },
                 { path: "announcement", element: <Announcement /> },
             ],
         },
@@ -52,8 +60,8 @@ const MainRoutes = () => {
             path: "/setup",
             element: <Layout />,
             children: [
-                { path: "initial", element: <InitialSystemSetup /> },
-                { path: "lessons", element: <LessonSetup /> },
+                { path: "initial", element: <RequireAccess path="/setup/initial"><InitialSystemSetup /></RequireAccess> },
+                { path: "lessons", element: <RequireAccess path="/setup/lessons"><LessonSetup /></RequireAccess> },
                 { path: "holidays", element: <HolidaySetup /> },
             ],
         },

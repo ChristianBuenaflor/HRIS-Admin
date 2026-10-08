@@ -7,7 +7,32 @@ import {
   NotebookPen,
     CalendarDays,
 } from 'lucide-react';
+import { isAdmin, isAdminAllowedSetupCard, isSuperAdmin } from '@/utils/role';
 
+
+const setupCards = [
+    {
+        id: 'initial',
+        title: 'Initial System Setup',
+        description: 'Set up your company and HRIS system',
+        icon: Settings,
+        path: '/setup/initial',
+    },
+     {
+        id: 'lessons',
+        title: 'Lessons',
+        description: 'Learn about the system and its features',
+        icon: NotebookPen,
+        path: '/setup/lessons',
+    },
+    {
+        id: 'holidays',
+        title: 'Holidays',
+        description: 'Manage company holidays and important events',
+        icon: CalendarDays,
+        path: '/setup/holidays',
+    },
+];
 
 const SetupManager = () => {
     const navigate = useNavigate();
@@ -28,29 +53,13 @@ const SetupManager = () => {
     }, []);
 
 
-    const setupCards = [
-        {
-            id: 'initial',
-            title: 'Initial System Setup',
-            description: 'Set up your company and HRIS system',
-            icon: Settings,
-            path: '/setup/initial',
-        },
-         {
-            id: 'lessons',
-            title: 'Lessons',
-            description: 'Learn about the system and its features',
-            icon: NotebookPen,
-            path: '/setup/lessons',
-        },
-        {
-            id: 'holidays',
-            title: 'Holidays',
-            description: 'Manage company holidays and important events',
-            icon: CalendarDays,
-            path: '/setup/holidays',
-        },
-    ];
+    // Computed every render (not memoized): role lives in localStorage and can
+    // change on login/logout without remounting this component.
+    const visibleSetupCards = isSuperAdmin()
+        ? setupCards
+        : isAdmin()
+            ? setupCards.filter((card) => isAdminAllowedSetupCard(card.id))
+            : setupCards;
 
     return (
         <div className="space-y-8">
@@ -79,7 +88,7 @@ const SetupManager = () => {
 
             {/* CARDS GRID */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {setupCards.map((card) => {
+                {visibleSetupCards.map((card) => {
                     const IconComponent = card.icon;
                     
                     return (

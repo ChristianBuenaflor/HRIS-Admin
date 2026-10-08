@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Link, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { getUserRole, canAccessPath } from "@/utils/permissions";
 import {
   LayoutDashboard,
   Users,
@@ -26,6 +27,7 @@ import {
   TreePine,
   Megaphone,
 } from "lucide-react";
+import { isAdmin, isAdminAllowedMenu, isSuperAdmin } from "@/utils/role";
 
 interface SidebarComponentProps {
   activeView: string;
@@ -50,10 +52,21 @@ const menuItems = [
 export function SidebarComponent({ activeView, setActiveView }: SidebarComponentProps) {
   const navigate = useNavigate();
 
+  // Computed every render (not memoized): role lives in localStorage and can
+  // change on login/logout without remounting this component.
+  const visibleMenuItems = isSuperAdmin()
+    ? menuItems
+    : isAdmin()
+      ? menuItems.filter((item) => isAdminAllowedMenu(item.id))
+      : menuItems;
+
+  const showSettings = true;
+
   const handleButton = (id: any, link: any) => {
     setActiveView(id);
     navigate(link);
   };
+  
 
   return (
     <Sidebar className="bg-indigo-600 text-white flex flex-col justify-between">
@@ -71,7 +84,7 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
 
       <SidebarContent className="p-3 bg-indigo-600">
         <SidebarMenu>
-          {menuItems.map((item) => (
+          {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.id}>
               <SidebarMenuButton
                 onClick={() => handleButton(item.id, item.link)}
@@ -101,6 +114,7 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
             </div>
           </div>
           <div className="flex space-x-2">
+            {showSettings && (
             <Link to="settings" className="flex-1">
               <Button
                 variant="outline"
@@ -112,6 +126,7 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
                 Settings
               </Button>
             </Link>
+            )}
             <Link to="/" className="flex-1">
               <Button
                 variant="outline"
