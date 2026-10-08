@@ -94,6 +94,7 @@ const SettingsComponent = () => {
     });
 
     const [hasChanges, setHasChanges] = useState(false);
+    const SETTINGS_STORAGE_KEY = "hris-admin-settings";
 
     // User Management State
     const [users, setUsers] = useState<User[]>([]);
@@ -269,6 +270,16 @@ const SettingsComponent = () => {
     // Initial fetch
     useEffect(() => {
         fetchUsers();
+        try {
+            const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (parsed?.settings) setSettings((prev) => ({ ...prev, ...parsed.settings }));
+                if (Array.isArray(parsed?.departments) && parsed.departments.length > 0) setDepartments(parsed.departments);
+            }
+        } catch {
+            // keep built-in defaults when persisted snapshot is unreadable
+        }
     }, []);
 
     // Reset user form
@@ -338,14 +349,23 @@ const SettingsComponent = () => {
     };
 
     const saveSettings = () => {
-        console.log('Saving settings:', settings);
-        setHasChanges(false);
-        toast.success("Settings saved successfully!"); // ✅ CORRECT
+        try {
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ settings, departments, updatedAt: new Date().toISOString() }));
+            setHasChanges(false);
+            toast.success("Settings saved successfully!");
+        } catch {
+            toast.error("Failed to persist settings locally.");
+        }
     };
 
     const resetToDefaults = () => {
         if (confirm('Are you sure you want to reset all settings to defaults?')) {
-            setHasChanges(true);
+            try {
+                localStorage.removeItem(SETTINGS_STORAGE_KEY);
+            } catch {
+                // ignore storage failures
+            }
+            window.location.reload();
         }
     };
 
@@ -361,13 +381,14 @@ const SettingsComponent = () => {
     };
 
     const handleSaveDepartment = () => {
+        let nextDepartments;
         if (editingDepartment) {
-            setDepartments(departments.map(d =>
+            nextDepartments = departments.map(d =>
                 d.id === editingDepartment.id
                     ? { ...d, name: departmentForm.name, manager: departmentForm.manager, employeeCount: Number(departmentForm.employeeCount), description: departmentForm.description }
                     : d
-            ));
-            toast.success("Department updated successfully!"); // ✅ CORRECT
+            );
+            setDepartments(nextDepartments);
         } else {
             const newDepartment = {
                 id: `D${String(departments.length + 1).padStart(3, '0')}`,
@@ -376,9 +397,18 @@ const SettingsComponent = () => {
                 employeeCount: Number(departmentForm.employeeCount),
                 description: departmentForm.description
             };
-            setDepartments([...departments, newDepartment]);
-            toast.success("Department created successfully!"); // ✅ CORRECT
+            nextDepartments = [...departments, newDepartment];
+            setDepartments(nextDepartments);
         }
+        try {
+            const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+            const persisted = raw ? JSON.parse(raw) : {};
+            localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...persisted, settings, departments: nextDepartments, updatedAt: new Date().toISOString() }));
+            toast.success(editingDepartment ? "Department updated and saved locally!" : "Department created and saved locally!");
+        } catch {
+            toast.success(editingDepartment ? "Department updated (local save failed)!" : "Department created (local save failed)!");
+        }
+        setHasChanges(false);
         setShowDepartmentDialog(false);
         resetDepartmentForm();
     };

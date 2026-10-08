@@ -42,7 +42,7 @@ import { format } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 const API_BASE_URL = "https://api-hris.slarenasitsolutions.com/public/api";
-const token = localStorage.getItem("token");
+const getToken = () => localStorage.getItem("token") ?? "";
 
 interface Employee {
   id: number;
@@ -99,7 +99,7 @@ const AttendanceTracker = () => {
     setError(null);
     try {
       const response = await fetch(`${API_BASE_URL}/attendances`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data: AttendanceResponse = await response.json();
 
@@ -119,7 +119,7 @@ const AttendanceTracker = () => {
   const fetchEmployees = async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/employees`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${getToken()}` },
       });
       const data = await res.json();
       setEmployees(data.employees || []);

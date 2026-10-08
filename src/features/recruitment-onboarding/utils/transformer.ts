@@ -2,11 +2,8 @@ import { reverseStageMapping } from './constant';
 
 export const transformApplicant = (backendApplicant: any) => {
     if (!backendApplicant) {
-        console.warn('Received undefined backendApplicant');
         return createDefaultApplicant();
     }
-
-    console.log('Transforming applicant:', backendApplicant);
 
     try {
         return {
@@ -56,8 +53,13 @@ export const transformInterview = (backendInterview: any) => {
 
         if (scheduledAt) {
             const datetime = new Date(scheduledAt);
-            date = datetime.toISOString().split('T')[0];
-            time = datetime.toTimeString().split(' ')[0].substring(0, 5);
+            const y = datetime.getFullYear();
+            const m = String(datetime.getMonth() + 1).padStart(2, '0');
+            const d = String(datetime.getDate()).padStart(2, '0');
+            date = `${y}-${m}-${d}`;
+            const hh = String(datetime.getHours()).padStart(2, '0');
+            const mm = String(datetime.getMinutes()).padStart(2, '0');
+            time = `${hh}:${mm}`;
         }
 
         return {
@@ -133,14 +135,24 @@ const getSafeStage = (stage: any): string => {
     return safeStage || stage || 'new';
 };
 
+const formatLocalDate = (value: string | Date): string => {
+    const d = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(d.getTime())) return new Date().toISOString().split('T')[0];
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+};
+
 const getSafeDate = (appliedDate: any, createdDate: any): string => {
     const date = appliedDate || createdDate;
-    if (!date) return new Date().toISOString().split('T')[0];
+    if (!date) return formatLocalDate(new Date());
 
     try {
-        return date.split('T')[0];
+        if (typeof date === 'string' && !date.includes('T')) return date.split(' ')[0];
+        return formatLocalDate(date);
     } catch {
-        return new Date().toISOString().split('T')[0];
+        return formatLocalDate(new Date());
     }
 };
 

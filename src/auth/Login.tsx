@@ -3,14 +3,16 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Settings, Eye, EyeOff, Smile } from 'lucide-react'
+import { Settings, Eye, EyeOff } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import { CandidatePortal } from '@/client/CandidatePortal'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import api from '@/utils/axios'
+import { hydrateStoredRole } from '@/utils/hydrateRole'
 
-// Startup Loading Animation Component
+const base = import.meta.env.BASE_URL || "/";
+
 const StartupLoading = () => {
     return (
         <motion.div
@@ -82,7 +84,7 @@ const StartupLoading = () => {
                                 animate={{ opacity: 1 }}
                                 transition={{ delay: 0.5 }}
                             >
-                                <img src="/logo.png" alt="" />
+                                <img src={`${base}logo.png`} alt="" />
                             </motion.div>
                         </motion.div>
 
@@ -266,7 +268,6 @@ const Login = () => {
     const [showPassword, setShowPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
     const [showIcon, setShowIcon] = useState(false)
-    const [showPointingLeft, setShowPointingLeft] = useState(false)
     const [hovered, setHovered] = useState(false)
     const [showStartup, setShowStartup] = useState(true)
 
@@ -310,6 +311,11 @@ const Login = () => {
                 localStorage.setItem("token", res.data.token)
                 localStorage.setItem("user", JSON.stringify(res.data.user))
                 localStorage.setItem("role", res.data.role)
+
+                // Login carries no role fields (role is the "user" guard string);
+                // hydrate the real privilege from GET /users before entering.
+                // Failures keep the legacy authenticated session, never block login.
+                await hydrateStoredRole()
 
                 navigate("/dashboard")
             } else {
@@ -448,48 +454,9 @@ const Login = () => {
                                 <Separator />
 
                                 <div className="text-center">
-                                    <motion.p
-                                        onClick={() => setShowPointingLeft(true)}
-                                        className="text-sm text-slate-600 hover:cursor-pointer"
-                                        whileHover={{ scale: 1.05 }}>
-                                        Don't Have An Account?
-
-                                    </motion.p>
-                                    <div className="relative inline-block mt-10">
-                                        <div className={`${showPointingLeft ? "flex flex-col text-start" : "hidden"}`}>
-                                            <motion.p
-                                                onClick={() => setShowPointingLeft(true)}
-                                                className="text-sm text-slate-600 hover:cursor-pointer"
-                                            >
-                                                username: superadmin
-
-                                            </motion.p>
-                                            <motion.p
-                                                onClick={() => setShowPointingLeft(true)}
-                                                className="text-sm text-slate-600 hover:cursor-pointer"
-                                            >
-                                                password: admin123
-
-                                            </motion.p>
-                                        </div>
-
-
-                                        <motion.img
-                                            src="/pointing-left.png"
-                                            alt="pointer"
-                                            className={`absolute -bottom-10  -right-25 size-20 ${showPointingLeft ? "block" : "hidden"}`}
-                                            animate={{ x: [0, -15, 0] }}
-                                            transition={{ duration: 1, repeat: Infinity, ease: "easeInOut" }}
-                                        />
-                                    </div>
-                                    <motion.p
-                                        className="text-sm font-semibold mt-10"
-                                        initial={{ opacity: 0, y: 20 }}
-                                        animate={showPointingLeft ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
-                                        transition={{ duration: 0.6, ease: "easeOut" }}
-                                    >
-                                        Hi Happy Hacking!. <Smile className=' ml-2 inline' />
-                                    </motion.p>
+                                    <p className="text-sm text-slate-600">
+                                        Contact your system administrator if you need account assistance.
+                                    </p>
                                 </div>
                             </motion.div>
                         </motion.div>
@@ -542,7 +509,7 @@ const Login = () => {
                                 initial={{ opacity: 0, scale: 0.9 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 transition={{ delay: 1.1 }}
-                                src="/samplebg.png"
+                                src={`${base}samplebg.png`}
                                 alt="Dashboard Preview"
                                 className="relative rounded-2xl shadow-2xl w-full"
                             />
@@ -553,13 +520,12 @@ const Login = () => {
                                 initial={{ opacity: 0, y: 50 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ duration: 0.8 }}
-                                onClick={() => setShowPointingLeft(true)}
                                 className="absolute bottom-0 right-0 z-[100] group"
                             >
                                 <motion.img
                                     whileHover={{ scale: 1.05, rotate: 3 }}
                                     transition={{ duration: 0.3 }}
-                                    src="icon1.png"
+                                    src={`${base}icon1.png`}
                                     alt=""
                                     className="size-72 hover:cursor-pointer"
                                     onMouseEnter={() => setHovered(true)}

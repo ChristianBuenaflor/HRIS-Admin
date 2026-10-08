@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 
 const API_BASE_URL = "https://api-hris.slarenasitsolutions.com/public/api";
-const token = localStorage.getItem("token");
+const getToken = () => localStorage.getItem("token") ?? "";
 
 interface Employee {
   id: number;
@@ -96,21 +96,27 @@ const DTRAdjustments = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [totalRecords, setTotalRecords] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
 
   // Fetch adjustments data from API
-  const fetchAdjustments = async () => {
+  const fetchAdjustments = async (overrides?: { search?: string; status?: string; page?: number }) => {
     setLoading(true);
     setError(null);
     try {
+      const effectiveSearch = overrides?.search !== undefined ? overrides.search : searchTerm;
+      const effectiveStatus = overrides?.status !== undefined ? overrides.status : statusFilter;
+      const effectivePage = overrides?.page !== undefined ? overrides.page : currentPage;
       const params = new URLSearchParams();
-      if (statusFilter) params.append("status", statusFilter);
-      if (searchTerm) params.append("search", searchTerm);
+      if (effectiveStatus && effectiveStatus !== "all") params.append("status", effectiveStatus);
+      if (effectiveSearch) params.append("search", effectiveSearch);
+      params.append("page", String(effectivePage));
 
       const response = await fetch(
         `${API_BASE_URL}/dtr-adjustments?${params}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
             "Content-Type": "application/json",
           },
         },
@@ -121,11 +127,12 @@ const DTRAdjustments = () => {
       }
 
       const data: AdjustmentsResponse = await response.json();
-      console.log("API Response:", data); // Debug log
 
       if (data.isSuccess) {
         setAdjustments(data.data || []);
         setTotalRecords(data.pagination?.total || 0);
+        setCurrentPage(data.pagination?.current_page ?? effectivePage);
+        setLastPage(data.pagination?.last_page ?? 1);
       } else {
         setError("Failed to fetch adjustments data");
       }
@@ -148,7 +155,7 @@ const DTRAdjustments = () => {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ status: "approved" }),
@@ -174,7 +181,7 @@ const DTRAdjustments = () => {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
             "Content-Type": "application/json",
           },
         },
@@ -239,13 +246,15 @@ const DTRAdjustments = () => {
 };
 
   const handleApplyFilters = () => {
-    fetchAdjustments();
+    setCurrentPage(1);
+    fetchAdjustments({ page: 1 });
   };
 
   const handleClearFilters = () => {
     setSearchTerm("");
     setStatusFilter("");
-    fetchAdjustments();
+    setCurrentPage(1);
+    fetchAdjustments({ search: "", status: "", page: 1 });
   };
 
   const truncateText = (text: string, limit = 40) => {
@@ -268,7 +277,7 @@ const DTRAdjustments = () => {
         <Card>
           <CardContent className="p-6 text-center">
             <div className="text-red-500 mb-4">{error}</div>
-            <Button onClick={fetchAdjustments} className="mt-4">
+            <Button onClick={() => fetchAdjustments()} className="mt-4">
               <RefreshCw className="w-4 h-4 mr-2" />
               Retry
             </Button>
@@ -344,7 +353,7 @@ const DTRAdjustments = () => {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={fetchAdjustments}
+                onClick={() => fetchAdjustments()}
                 disabled={loading}
               >
                 <RefreshCw
@@ -395,8 +404,7 @@ const DTRAdjustments = () => {
                       <TableHead>Status</TableHead>
                       <TableHead>Actions</TableHead>
                     </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                  </TableHeader>                  <TableBody>
                     {adjustments.map((record) => (
                       <TableRow key={record.id}>
                         <TableCell className="flex items-center space-x-3">
@@ -507,6 +515,29 @@ const DTRAdjustments = () => {
                   </TableBody>
                 </Table>
               </div>
+              {lastPage > 1 && (
+                <div className="flex justify-center items-center gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === 1}
+                    onClick={() => fetchAdjustments({ page: currentPage - 1 })}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {lastPage}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage === lastPage}
+                    onClick={() => fetchAdjustments({ page: currentPage + 1 })}
+                  >
+                    Next
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </CardContent>

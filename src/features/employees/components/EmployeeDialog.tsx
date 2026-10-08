@@ -697,11 +697,8 @@ const EmployeeDialog = ({
                 submitData.append('201_file[]', file);
             });
 
-            // Debug: log what's being sent
-            console.log('Submitting data:');
-            for (let [key, value] of submitData.entries()) {
-                console.log(key, value);
-            }
+            // Files are submitted without console logging to avoid leaking
+            // passwords, government IDs, or contact details.
 
             if (editingEmployee) {
                 // Update existing employee

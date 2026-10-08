@@ -76,9 +76,23 @@ const SetupManager = () => {
     };
 
     const handleComplete = () => {
-        localStorage.setItem('hris_setup_data', JSON.stringify(setupData));
+        if (currentStep < setupSteps.length - 1) {
+            toast.error(`Please complete all ${setupSteps.length} steps before finishing (currently on step ${currentStep + 1}).`);
+            return;
+        }
+        const required: Array<[string, unknown]> = [
+            ["companyName", setupData.companyName],
+            ["departments", setupData.departments],
+            ["positions", setupData.positions],
+        ];
+        const missing = required.filter(([, v]) => !v || (Array.isArray(v) && v.length === 0)).map(([k]) => k);
+        if (missing.length > 0) {
+            toast.error(`Complete required sections before finishing: ${missing.join(", ")}. Individual steps save to the API separately.`);
+            return;
+        }
+        localStorage.setItem('hris_setup_data', JSON.stringify({ ...setupData, completedAt: new Date().toISOString() }));
         localStorage.setItem('hris_setup_complete', 'true');
-        toast.success('Setup completed successfully!');
+        toast.success('Setup snapshot saved locally. Verify each step saved to the backend before going live.');
     };
 
     const renderStepContent = () => {

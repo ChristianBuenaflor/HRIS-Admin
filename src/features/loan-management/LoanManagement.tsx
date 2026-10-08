@@ -160,11 +160,20 @@ export function LoanManagement() {
         const endDate = new Date(backendLoan.end_date);
         const termMonths = Math.max(1, Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30)));
 
-        // Calculate months paid based on current date and payments made
-        const currentDate = new Date();
-        const monthsPaid = backendLoan.start_date
-            ? Math.min(termMonths, Math.max(0, Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 30))))
-            : 0;
+        // Derive paid installments from actual balance movement, not elapsed time.
+        // Backend provides no payment ledger here, so paid = (original total - remaining balance).
+        const interestRate = Number(backendLoan.interest_rate) || 0;
+        const principal = Number(backendLoan.principal_amount) || 0;
+        const balance = Number(backendLoan.balance_amount) || 0;
+        const monthly = Number(backendLoan.monthly_amortization) || 0;
+        const totalWithInterest = principal * (1 + interestRate / 100);
+        const totalAmount = Math.max(totalWithInterest, principal, balance);
+        const paidAmount = Math.max(0, totalAmount - balance);
+        const monthsPaid = backendLoan.status === 'paid'
+            ? termMonths
+            : monthly > 0
+                ? Math.min(termMonths, Math.floor(paidAmount / monthly))
+                : 0;
 
         // Map backend status to frontend status
         const statusMap = {
@@ -186,7 +195,7 @@ export function LoanManagement() {
             principal: backendLoan.principal_amount,
             interestRate: backendLoan.interest_rate,
             monthlyDeduction: backendLoan.monthly_amortization,
-            totalAmount: backendLoan.balance_amount, // Initial balance includes interest
+            totalAmount,
             balance: backendLoan.balance_amount,
             termMonths,
             monthsPaid,

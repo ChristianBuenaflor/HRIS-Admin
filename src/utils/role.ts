@@ -63,10 +63,18 @@ function currentRole(): DetectedRole {
   if (!warnedUnknown) {
     warnedUnknown = true;
     console.warn(
-      `[role] Unrecognized role (name=${JSON.stringify(getRoleName())} id=${JSON.stringify(readStoredUser()?.role_id ?? null)}). Falling back to full access.`
+      `[role] Unrecognized role (name=${JSON.stringify(getRoleName())} id=${JSON.stringify(readStoredUser()?.role_id ?? null)}). Allowing authenticated fallback access.`
     );
   }
   return "unknown";
+}
+
+export function isAuthenticated(): boolean {
+  try {
+    return Boolean(localStorage.getItem("token") && readStoredUser());
+  } catch {
+    return false;
+  }
 }
 
 export function isSuperAdmin(): boolean {
@@ -77,7 +85,6 @@ export function isAdmin(): boolean {
   return currentRole() === "admin";
 }
 
-/** Sidebar / route access for the Admin role. Super Admin always has access. */
 export function isAdminAllowedMenu(menuId: string): boolean {
   const allowed = new Set(["dashboard", "attendance-leave", "payroll", "announcement", "setup"]);
   return allowed.has(menuId);
@@ -90,7 +97,6 @@ export function isAdminAllowedRoute(path: string): boolean {
     "attendance-leaving",
     "payroll",
     "announcement",
-    "settings",
     "setup-manager",
     "setup/holidays",
   ]);
@@ -105,7 +111,16 @@ export function isAdminAllowedSetupCard(cardId: string): boolean {
 }
 
 export function hasRouteAccess(path: string): boolean {
+  if (!isAuthenticated()) return false;
   if (isSuperAdmin()) return true;
   if (isAdmin()) return isAdminAllowedRoute(path);
+  // Backend login returns a generic role (e.g. "user") with no role_id for
+  // legitimate app users. Preserve legacy full access for authenticated
+  // sessions; unauthenticated sessions are denied above. Positive admin
+  // identification still restricts to the admin allowlist.
   return true;
+}
+
+export function getDetectedRole(): DetectedRole {
+  return currentRole();
 }

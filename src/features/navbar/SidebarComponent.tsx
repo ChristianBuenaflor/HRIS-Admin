@@ -8,9 +8,8 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { getUserRole, canAccessPath } from "@/utils/permissions";
+import { useNavigate } from "react-router-dom";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   Users,
@@ -27,7 +26,7 @@ import {
   TreePine,
   Megaphone,
 } from "lucide-react";
-import { isAdmin, isAdminAllowedMenu, isSuperAdmin } from "@/utils/role";
+import { isAdmin, isAdminAllowedMenu, isAuthenticated, isSuperAdmin } from "@/utils/role";
 
 interface SidebarComponentProps {
   activeView: string;
@@ -54,19 +53,79 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
 
   // Computed every render (not memoized): role lives in localStorage and can
   // change on login/logout without remounting this component.
-  const visibleMenuItems = isSuperAdmin()
-    ? menuItems
-    : isAdmin()
-      ? menuItems.filter((item) => isAdminAllowedMenu(item.id))
-      : menuItems;
+  // Unauthenticated => no items. Authenticated with generic backend role
+  // (e.g. "user") keeps legacy full access; positively-identified admins
+  // are restricted to their allowlist.
+  const visibleMenuItems = !isAuthenticated()
+    ? []
+    : isSuperAdmin()
+      ? menuItems
+      : isAdmin()
+        ? menuItems.filter((item) => isAdminAllowedMenu(item.id))
+        : menuItems;
 
-  const showSettings = true;
+  const showSettings = isAuthenticated() && !isAdmin();
+
+  // Dynamic footer: read the logged-in user every render (same pattern as
+  // the role checks above). Falls back to the generic label when storage
+  // is empty or unreadable.
+  const storedUser = (() => {
+    try {
+      const raw = localStorage.getItem("user");
+      if (!raw) return null;
+      return JSON.parse(raw) as {
+        first_name?: string | null;
+        last_name?: string | null;
+        name?: string | null;
+        username?: string | null;
+        email?: string | null;
+        role_name?: string | number | null;
+        profile_picture?: string | null;
+      };
+    } catch {
+      return null;
+    }
+  })();
+
+  const displayName =
+    [storedUser?.first_name, storedUser?.last_name].filter(Boolean).join(" ") ||
+    storedUser?.name ||
+    storedUser?.username ||
+    "Admin User";
+  const displaySub =
+    storedUser?.email ||
+    (storedUser?.role_name ? String(storedUser.role_name) : "") ||
+    "";
+  const initials =
+    displayName
+      .split(" ")
+      .map((part) => part.charAt(0))
+      .join("")
+      .substring(0, 2)
+      .toUpperCase() || "AD";
 
   const handleButton = (id: any, link: any) => {
     setActiveView(id);
     navigate(link);
   };
-  
+
+  const handleLogout = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      if (token) {
+        const { default: api } = await import("@/utils/axios");
+        await api.post("/logout").catch(() => undefined);
+      }
+    } catch {
+      // Ignore logout endpoint failures; always clear local session.
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("role");
+      setActiveView("dashboard");
+      navigate("/", { replace: true });
+    }
+  };
 
   return (
     <Sidebar className="bg-indigo-600 text-white flex flex-col justify-between">
@@ -106,37 +165,40 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
         <div className="px-4 py-3 space-y-3 border-t border-indigo-500">
           <div className="flex items-center space-x-3">
             <Avatar className="h-8 w-8 bg-white text-indigo-600 font-bold">
-              <AvatarFallback>AD</AvatarFallback>
+              {storedUser?.profile_picture ? (
+                <AvatarImage src={storedUser.profile_picture} alt={displayName} className="object-cover" />
+              ) : (
+                <AvatarFallback>{initials}</AvatarFallback>
+              )}
             </Avatar>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium truncate text-white">Admin User</div>
-              <div className="text-xs text-indigo-200 truncate">admin@company.com</div>
+              <div className="text-sm font-medium truncate text-white">{displayName}</div>
+              {displaySub && (
+                <div className="text-xs text-indigo-200 truncate">{displaySub}</div>
+              )}
             </div>
           </div>
           <div className="flex space-x-2">
             {showSettings && (
-            <Link to="settings" className="flex-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-white text-indigo-600 hover:bg-indigo-100"
-                onClick={() => setActiveView("settings")}
-              >
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-white text-indigo-600 hover:bg-indigo-100"
+              onClick={() => handleButton("settings", "settings")}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
             )}
-            <Link to="/" className="flex-1">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full bg-white text-indigo-600 hover:bg-indigo-100"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1 bg-white text-indigo-600 hover:bg-indigo-100"
+              onClick={handleLogout}
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           </div>
         </div>
       </SidebarFooter>

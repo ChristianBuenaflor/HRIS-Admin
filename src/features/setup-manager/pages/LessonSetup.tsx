@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { BookOpen } from "lucide-react";
 import { toast } from "sonner";
-import axios from "axios";
+import api from "@/utils/axios";
 import { LessonInfoStep } from "../components/steps/LessonInfoStep";
 import { ModulesStep } from "../components/steps/ModulesStep";
 import { QuestionsStep } from "../components/steps/QuestionsStep";
@@ -35,8 +35,6 @@ interface LessonData {
 const LessonSetup = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
-  
-  const API_BASE = "https://api-hris.slarenasitsolutions.com/public/api";
 
   const [lessonData, setLessonData] = useState<LessonData>({
     title: "",
@@ -145,8 +143,8 @@ const LessonSetup = () => {
       console.log("Saving complete lesson structure:", payload);
       setIsSaving(true);
 
-      const res = await axios.post(
-        `${API_BASE}/training/create/full-lesson`,
+      const res = await api.post(
+        `/training/create/full-lesson`,
         payload,
         {
           headers: {

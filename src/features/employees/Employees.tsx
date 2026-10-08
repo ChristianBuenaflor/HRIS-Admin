@@ -21,7 +21,7 @@ import type {
 } from './employeeTS';
 
 const Employees = () => {
-    const token = localStorage.getItem('token');
+    const getToken = () => localStorage.getItem('token') ?? '';
     const [employees, setEmployees] = useState<Employee[]>([]);
     const [departments, setDepartments] = useState<Department[]>([]);
     const [positions, setPositions] = useState<PositionType[]>([]);
@@ -48,14 +48,15 @@ const Employees = () => {
     const [pagination, setPagination] = useState({ current_page: 1, per_page: 50, total: 0, last_page: 1 });
 
     // Fetch employees with search, filters and pagination
-    const fetchEmployees = async (page = 1, search = searchTerm, filterParams = filters) => {
+    const fetchEmployees = async (page = 1, search = searchTerm, filterParams = filters, perPage?: number) => {
         try {
             setLoading(true);
+            const effectivePerPage = perPage ?? pagination.per_page;
 
             // Build query parameters
             const params = new URLSearchParams({
                 page: page.toString(),
-                per_page: pagination.per_page.toString(),
+                per_page: effectivePerPage.toString(),
                 ...(search && { search }),
                 ...(filterParams.department_id && { department_id: filterParams.department_id }),
                 ...(filterParams.position_id && { position_id: filterParams.position_id }),
@@ -65,7 +66,7 @@ const Employees = () => {
 
             const response = await api.get(`/employees?${params}`, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${getToken()}`
                 }
             });
             const result = response.data;
@@ -120,7 +121,7 @@ const Employees = () => {
     // Per page handler
     const handlePerPageChange = (newPerPage: number) => {
         setPagination(prev => ({ ...prev, per_page: newPerPage, current_page: 1 }));
-        fetchEmployees(1, searchTerm, filters);
+        fetchEmployees(1, searchTerm, filters, newPerPage);
     };
 
     // Fetch employee details for view dialog
@@ -128,7 +129,7 @@ const Employees = () => {
         try {
             const response = await api.get(`/employees/${employeeId}`, {
                 headers: {
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${getToken()}`
                 }
             });
             const result = response.data;
@@ -173,7 +174,7 @@ const Employees = () => {
     const fetchBenefitTypes = async () => {
         try {
             const response = await api.get('/dropdown/benefit-types', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (response.data.isSuccess) {
                 setBenefitTypes(response.data.data);
@@ -187,7 +188,7 @@ const Employees = () => {
     const fetchAllowanceTypes = async () => {
         try {
             const response = await api.get('/dropdown/allowance-types', {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${getToken()}` }
             });
             if (response.data.isSuccess) {
                 setAllowanceTypes(response.data.data);
@@ -314,16 +315,6 @@ const Employees = () => {
                         <Plus className="h-4 w-4" />
                         Add Employee
                     </Button>
-                    <EmployeeDialog
-                        editingEmployee={editingEmployee}
-                        setEditingEmployee={setEditingEmployee}
-                        departments={departments}
-                        positions={positions}
-                        benefitTypes={benefitTypes}
-                        onEmployeeAdded={() => fetchEmployees(pagination.current_page, searchTerm, filters)}
-                        onEmployeeUpdated={() => fetchEmployees(pagination.current_page, searchTerm, filters)}
-                        onEmployeeArchived={() => fetchEmployees(pagination.current_page, searchTerm, filters)}
-                    />
                 </div>
                 <EmployeeDialog
                     editingEmployee={editingEmployee}

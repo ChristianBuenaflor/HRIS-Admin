@@ -1,8 +1,9 @@
-import axios from 'axios';
+import api from '@/utils/axios';
 
-const API_BASE_URL = 'https://api-hris.slarenasitsolutions.com/public/api';
-
-
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
 
 export interface JobPosting {
     id: string;
@@ -63,21 +64,21 @@ export interface JobPostingFilters {
     page?: number;
 }
 
-// Job Posting API
+// Job Posting API (authenticated via shared client + per-request token)
 export const jobPostingAPI = {
     // Get all job postings with optional filters
     getAll: (params?: JobPostingFilters) =>
-        axios.get<JobPostingResponse>(`${API_BASE_URL}/job-postings`, { params }),
+        api.get<JobPostingResponse>(`/job-postings`, { params, headers: getAuthHeaders() }),
 
     // Create a new job posting
     create: (data: CreateJobPostingRequest) =>
-        axios.post<JobPostingResponse>(`${API_BASE_URL}/create/job-postings`, data),
+        api.post<JobPostingResponse>(`/create/job-postings`, data, { headers: getAuthHeaders() }),
 
     // Update a job posting
     update: (id: string, data: UpdateJobPostingRequest) =>
-        axios.post<JobPostingResponse>(`${API_BASE_URL}/update/job-postings/${id}`, data),
+        api.post<JobPostingResponse>(`/update/job-postings/${id}`, data, { headers: getAuthHeaders() }),
 
     // Archive a job posting
     archive: (id: string) =>
-        axios.post<JobPostingResponse>(`${API_BASE_URL}/archive/job-postings/${id}`),
+        api.post<JobPostingResponse>(`/archive/job-postings/${id}`, {}, { headers: getAuthHeaders() }),
 };

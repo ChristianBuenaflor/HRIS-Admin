@@ -153,7 +153,7 @@ export function CandidatePortal() {
         experience_years: "",
     });
 
-    const fetchJobPostings = async (search = "", departmentId = "") => {
+    const fetchJobPostings = async (search = "", departmentId = "", page = 1) => {
         try {
             setLoading(true);
             setError(null);
@@ -161,6 +161,7 @@ export function CandidatePortal() {
             if (search) params.append("search", search);
             if (departmentId && departmentId !== "all") params.append("department_id", departmentId);
             params.append("per_page", "12");
+            params.append("page", String(page));
 
             const response = await fetch(`${api}/job-postings?${params.toString()}`);
             if (!response.ok) throw new Error("Failed to fetch job postings");
@@ -316,11 +317,7 @@ export function CandidatePortal() {
                 formData.append('resume', applicationData.resume);
             }
 
-            // Debug: Log FormData contents
-            console.log("FormData contents:");
-            for (let [key, value] of formData.entries()) {
-                console.log(key + ": ", value);
-            }
+            // Do not log FormData contents: may contain PII and resume file metadata.
 
             const response = await fetch(`${api}/create/applicants`, {
                 method: 'POST',
@@ -629,10 +626,7 @@ export function CandidatePortal() {
                                 <Button
                                     variant="outline"
                                     disabled={pagination.current_page === 1}
-                                    onClick={() => {
-                                        // You would need to implement pagination in your API call
-                                        console.log('Previous page');
-                                    }}
+                                    onClick={() => fetchJobPostings(searchTerm, departmentFilter, pagination.current_page - 1)}
                                 >
                                     Previous
                                 </Button>
@@ -642,10 +636,7 @@ export function CandidatePortal() {
                                 <Button
                                     variant="outline"
                                     disabled={pagination.current_page === pagination.last_page}
-                                    onClick={() => {
-                                        // You would need to implement pagination in your API call
-                                        console.log('Next page');
-                                    }}
+                                    onClick={() => fetchJobPostings(searchTerm, departmentFilter, pagination.current_page + 1)}
                                 >
                                     Next
                                 </Button>

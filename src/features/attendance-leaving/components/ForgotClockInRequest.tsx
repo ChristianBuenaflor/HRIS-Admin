@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/tooltip";
 const API_BASE_URL = "https://api-hris.slarenasitsolutions.com/public/api";  
 
-const token = localStorage.getItem("token");
+const getToken = () => localStorage.getItem("token") ?? "";
 
 interface Employee {
   id: number;
@@ -70,31 +70,33 @@ const ForgotClockInRequest = () => {
   const [statusFilter, setStatusFilter] = useState("");
   const [processingId, setProcessingId] = useState<number | null>(null);
 
-  const fetchAdjustments = async () => {
+  const fetchAdjustments = async (overrides?: { search?: string; status?: string }) => {
     setLoading(true);
     try {
+      const effectiveSearch = overrides?.search !== undefined ? overrides.search : searchTerm;
+      const effectiveStatus = overrides?.status !== undefined ? overrides.status : statusFilter;
       const params = new URLSearchParams();
 
-      if (statusFilter && statusFilter !== "all") {
-        params.append("status", statusFilter);
+      if (effectiveStatus && effectiveStatus !== "all") {
+        params.append("status", effectiveStatus);
       }
 
-      if (searchTerm) {
-        params.append("search", searchTerm);
+      if (effectiveSearch) {
+        params.append("search", effectiveSearch);
       }
 
       const response = await fetch(
         `${API_BASE_URL}/missed-adjustments?${params.toString()}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${getToken()}`,
             "Content-Type": "application/json",
           },
         },
       );
 
       const result = await response.json();
-      console.log("API Response:", result);
+      
 
       if (result.isSuccess) {
         setAdjustments(result.data || []);
@@ -119,7 +121,7 @@ const ForgotClockInRequest = () => {
       const response = await fetch(`${API_BASE_URL}/adjustment/approve/${id}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
@@ -127,8 +129,7 @@ const ForgotClockInRequest = () => {
         }),
       });
 
-      const result = await response.json();
-      console.log("Approve response:", result);
+      await response.json();
 
       fetchAdjustments();
     } catch (err) {
@@ -143,13 +144,12 @@ const ForgotClockInRequest = () => {
       const response = await fetch(`${API_BASE_URL}/adjustment/reject/${id}`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${getToken()}`,
           "Content-Type": "application/json",
         },
       });
 
-      const result = await response.json();
-      console.log("Reject response:", result);
+      await response.json();
 
       fetchAdjustments();
       setProcessingId(null);
@@ -191,7 +191,7 @@ const ForgotClockInRequest = () => {
   const handleClearFilters = () => {
     setSearchTerm("");
     setStatusFilter("");
-    fetchAdjustments();
+    fetchAdjustments({ search: "", status: "" });
   };
 
   const truncateText = (text: string, limit = 40) => {

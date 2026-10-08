@@ -26,7 +26,6 @@ export const ADMIN_ROUTES = [
   "/announcement",
   "/setup-manager",
   "/setup/holidays",
-  "/settings",
 ];
 
 export function canAccessPath(

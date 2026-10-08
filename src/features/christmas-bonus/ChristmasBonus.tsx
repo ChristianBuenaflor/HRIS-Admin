@@ -304,14 +304,29 @@ export function ChristmasBonus() {
     };
 
     const handleExportToExcel = async () => {
-        if (thirteenthMonthRecords.length === 0) {
-            toast.error('No 13th month records to export.');
+        if (!selectedPeriod) {
+            toast.error('No period selected for export.');
             return;
         }
 
         setLoading(true);
         try {
-            const dataToExport = thirteenthMonthRecords.map((record) => ({
+            // Fetch all pages so the file and totals do not vary with pagination.
+            let allRecords = [...thirteenthMonthRecords];
+            const lastPage = pagination?.last_page ?? 1;
+            const currentPage = pagination?.current_page ?? 1;
+            if (lastPage > 1) {
+                for (let page = 1; page <= lastPage; page++) {
+                    if (page === currentPage) continue;
+                    const res = await thirteenthMonthAPI.getThirteenthMonthRecordsByPeriod(selectedPeriod.id, page);
+                    if (res.isSuccess && Array.isArray(res.data)) allRecords = allRecords.concat(res.data);
+                }
+            }
+            if (allRecords.length === 0) {
+                toast.error('No 13th month records to export.');
+                return;
+            }
+            const dataToExport = allRecords.map((record) => ({
                 'Employee ID': record.employee_id || 'N/A',
                 'Employee Name': record.employee_name || 'N/A',
                 'Calculation Period': selectedPeriod ? formatPeriodRange(selectedPeriod) : 'N/A',

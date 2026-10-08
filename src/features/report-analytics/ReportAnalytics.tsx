@@ -89,7 +89,13 @@ const emptyEodSummary = {
     total_late_deduction: 0,
 };
 
-const getToday = () => new Date().toISOString().slice(0, 10);
+const getToday = () => {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 const formatDateTime = (value?: string | null) => value ? new Date(value).toLocaleString() : '--';
 
@@ -181,12 +187,45 @@ const ReportAnalytics = () => {
     ];
 
     const exportReport = (format: string) => {
-        // Simulate report export
-        alert(`Exporting ${selectedReport} report as ${format.toUpperCase()}`);
+        try {
+            const normalized = format.toLowerCase();
+            // Live EOD view exports real rows; placeholder views export their demo rows and are labeled.
+            const isLiveView = selectedReport === 'attendance' && eodReports.length > 0;
+            const rows: Record<string, unknown>[] = isLiveView
+                ? eodReports.map((r) => ({
+                    id: r.id,
+                    employee: employeeName(r.employee),
+                    status: r.status,
+                    clock_in: r.clock_in ?? '',
+                    clock_out: r.clock_out ?? '',
+                    hours_worked: r.hours_worked ?? '',
+                }))
+                : (selectedReport === 'overview' ? mockEmployees : selectedReport === 'payroll' ? mockPayroll : mockDepartments).map((r) => ({ ...(r as object) }));
+            if (rows.length === 0) return;
+            if (normalized === 'csv') {
+                const headers = Object.keys(rows[0]);
+                const csv = [headers.join(','), ...rows.map((r) => headers.map((h) => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${selectedReport}-report${isLiveView ? '' : '-demo'}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } else {
+                // CSV is the supported file export; other formats fall back to CSV with a demo label when applicable.
+                exportReport('csv');
+            }
+        } catch {
+            // no-op: export is best-effort
+        }
     };
 
     const renderOverviewDashboard = () => (
         <div className="space-y-6">
+            <div className="flex items-center gap-2">
+                <Badge variant="outline">Demo data — connect live HRIS source to replace mockEmployees/mockDepartments/mockPayroll</Badge>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">

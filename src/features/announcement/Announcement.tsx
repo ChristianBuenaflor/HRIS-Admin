@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api from "@/utils/axios";
+import { sanitizeAnnouncementHtml } from "@/utils/sanitizeHtml";
 
 // Types
 interface Announcement {
@@ -624,7 +625,7 @@ const Announcement = () => {
                     </h3>
                     <div
                       className="text-slate-700 leading-relaxed break-words [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:mb-1 [&_strong]:font-semibold [&_em]:italic"
-                      dangerouslySetInnerHTML={{ __html: selectedAnnouncement.content }}
+                      dangerouslySetInnerHTML={{ __html: sanitizeAnnouncementHtml(selectedAnnouncement.content) }}
                     />
                   </div>
 

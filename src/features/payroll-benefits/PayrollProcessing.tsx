@@ -783,20 +783,30 @@ export function PayrollProcessing() {
     try {
       const XLSX = await import("xlsx");
       const { saveAs } = await import("file-saver");
-      const response = await payrollAPI.getPayrollDetails(
-        selectedPeriod.id,
-        1,
-        100,
-      );
-
-      if (!response.isSuccess) {
-        toast.error(
-          response.message || "Failed to fetch payroll data for export.",
+      // Fetch every page so large periods export complete files (not just page 1).
+      const perPage = 100;
+      let page = 1;
+      let allDetails: any[] = [];
+      for (let i = 0; i < 50; i++) {
+        const response = await payrollAPI.getPayrollDetails(
+          selectedPeriod.id,
+          page,
+          perPage,
         );
-        return;
+        if (!response.isSuccess) {
+          toast.error(
+            response.message || "Failed to fetch payroll data for export.",
+          );
+          return;
+        }
+        const batch = response.payrolldetails || [];
+        allDetails = allDetails.concat(batch);
+        const pagination = (response as any).pagination;
+        if (!pagination || page >= pagination.last_page || batch.length < perPage) break;
+        page += 1;
       }
 
-      const payrollData = response.payrolldetails || [];
+      const payrollData = allDetails;
 
       const dataToExport = payrollData.map((record: any) => ({
         "Employee Name":
