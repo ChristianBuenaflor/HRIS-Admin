@@ -8,12 +8,13 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   LayoutDashboard,
   Users,
   Clock,
+  CalendarDays,
   DollarSign,
   Settings,
   Settings2,
@@ -25,31 +26,38 @@ import {
   Building2,
   TreePine,
   Megaphone,
+  type LucideIcon,
 } from "lucide-react";
 import { isAdmin, isAdminAllowedMenu, isAuthenticated, isSuperAdmin } from "@/utils/role";
+import { isMenuActive } from "./activeMenu";
 
-interface SidebarComponentProps {
-  activeView: string;
-  setActiveView: (view: string) => void;
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  link: string;
+  /** Extra routes that belong to this menu item. */
+  activeLinks?: string[];
 }
 
-
-const menuItems = [
+const menuItems: MenuItem[] = [
   { id: "dashboard", label: "Dashboard", icon: LayoutDashboard, link: "/dashboard" },
   { id: "employees", label: "Employees", icon: Users, link: "/employees" },
   { id: "recruitment", label: "Recruitment & Onboarding", icon: UserPlus, link: "/recruitment-onboarding" },
   { id: "jobposting", label: "Job Posting", icon: BookUser, link: "/job-posting" },
   { id: "attendance-leave", label: "Attendance & Leave", icon: Clock, link: "/attendance-leaving" },
+  { id: "attendance-calendar", label: "Attendance Calendar", icon: CalendarDays, link: "/attendance-calendar" },
   { id: "payroll", label: "Payroll & Benefits", icon: DollarSign, link: "/payroll" },
   { id: "thirteen-pay", label: "13th Month Generator", icon: TreePine, link: "/christmas-bonus" },
   { id: "loan-management", label: "Loan Management", icon: HandCoins, link: "/loan-management" },
   { id: "reports", label: "Reports & Analytics", icon: BarChart3, link: "/reports-analytics" },
   { id: "announcement", label: "Announcement", icon: Megaphone, link: "/announcement" },
-  { id: "setup", label: "Setup Manager", icon: Settings2, link: "/setup-manager" },
+  { id: "setup", label: "Setup Manager", icon: Settings2, link: "/setup-manager", activeLinks: ["/setup"] },
 ];
 
-export function SidebarComponent({ activeView, setActiveView }: SidebarComponentProps) {
+export function SidebarComponent() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Computed every render (not memoized): role lives in localStorage and can
   // change on login/logout without remounting this component.
@@ -104,8 +112,7 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
       .substring(0, 2)
       .toUpperCase() || "AD";
 
-  const handleButton = (id: any, link: any) => {
-    setActiveView(id);
+  const handleButton = (link: string) => {
     navigate(link);
   };
 
@@ -122,7 +129,6 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
       localStorage.removeItem("token");
       localStorage.removeItem("user");
       localStorage.removeItem("role");
-      setActiveView("dashboard");
       navigate("/", { replace: true });
     }
   };
@@ -146,9 +152,9 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
           {visibleMenuItems.map((item) => (
             <SidebarMenuItem key={item.id}>
               <SidebarMenuButton
-                onClick={() => handleButton(item.id, item.link)}
+                onClick={() => handleButton(item.link)}
                 className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 transition-colors
-                  ${activeView === item.id
+                  ${isMenuActive(location.pathname, item.link, ...(item.activeLinks ?? []))
                     ? "bg-white text-indigo-600 font-semibold"
                     : "text-white hover:bg-indigo-500"
                   }`}
@@ -184,7 +190,7 @@ export function SidebarComponent({ activeView, setActiveView }: SidebarComponent
               variant="outline"
               size="sm"
               className="flex-1 bg-white text-indigo-600 hover:bg-indigo-100"
-              onClick={() => handleButton("settings", "settings")}
+              onClick={() => handleButton("settings")}
             >
               <Settings className="w-4 h-4 mr-2" />
               Settings

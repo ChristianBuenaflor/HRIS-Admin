@@ -86,7 +86,7 @@ export function isAdmin(): boolean {
 }
 
 export function isAdminAllowedMenu(menuId: string): boolean {
-  const allowed = new Set(["dashboard", "attendance-leave", "payroll", "announcement", "setup"]);
+  const allowed = new Set(["dashboard", "attendance-leave", "attendance-calendar", "payroll", "announcement", "setup"]);
   return allowed.has(menuId);
 }
 
@@ -95,6 +95,7 @@ export function isAdminAllowedRoute(path: string): boolean {
   const allowedExact = new Set([
     "dashboard",
     "attendance-leaving",
+    "attendance-calendar",
     "payroll",
     "announcement",
     "setup-manager",

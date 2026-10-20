@@ -8,7 +8,6 @@ import { hydrateStoredRole } from "@/utils/hydrateRole";
 
 
 const Layout = () => {
-    const [activeView, setActiveView] = useState('dashboard');
     const [, setRoleVersion] = useState(0);
     const navigate = useNavigate();
 
@@ -32,15 +31,12 @@ const Layout = () => {
     return (
         <SidebarProvider>
             <div className="flex h-screen w-full">
-                <SidebarComponent
-                    activeView={activeView}
-                    setActiveView={setActiveView}
-                />
+                <SidebarComponent />
 
                 <main className="flex-1 overflow-auto">
                     <HeadbarComponent />
                     <div className="p-6">
-                        <Outlet context={{ activeView }} />
+                        <Outlet />
                     </div>
                 </main>
             </div>

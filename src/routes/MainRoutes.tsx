@@ -8,6 +8,7 @@ const Dashboard = lazy(() => import('@/features/dashboard/Dashboard'))
 const SettingsComponent = lazy(() => import('@/features/settings/SettingsComponent'))
 const ReportAnalytics = lazy(() => import('@/features/report-analytics/ReportAnalytics'))
 const AttendanceLeaving = lazy(() => import('@/features/attendance-leaving/AttendanceLeaving'))
+const AttendanceCalendar = lazy(() => import('@/features/attendance-calendar/AttendanceCalendar'))
 const SetupManager = lazy(() => import('@/features/setup-manager/SetupManager'))
 const InitialSystemSetup = lazy(() => import('@/features/setup-manager/pages/InitialSystemSetup'))
 const LessonSetup = lazy(() => import('@/features/setup-manager/pages/LessonSetup'))
@@ -55,6 +56,7 @@ const MainRoutes = () => {
                 { path: "reports-analytics", element: <RequireAccess path="/reports-analytics"><ReportAnalytics /></RequireAccess> },
                 { path: "setup-manager", element: <RequireAccess path="/setup-manager"><SetupManager /></RequireAccess> },
                 { path: "attendance-leaving", element: <RequireAccess path="/attendance-leaving"><AttendanceLeaving /></RequireAccess> },
+                { path: "attendance-calendar", element: <RequireAccess path="/attendance-calendar"><AttendanceCalendar /></RequireAccess> },
                 { path: "employees", element: <RequireAccess path="/employees"><Employees /></RequireAccess> },
                 { path: "job-posting", element: <RequireAccess path="/job-posting"><RecruitmentJobPostings /></RequireAccess> },
                 { path: "payroll", element: <RequireAccess path="/payroll"><PayrollProcessing /></RequireAccess> },

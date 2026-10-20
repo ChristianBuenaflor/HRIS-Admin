@@ -22,6 +22,7 @@ export function getUserRole(): UserRole {
 export const ADMIN_ROUTES = [
   "/dashboard",
   "/attendance-leaving",
+  "/attendance-calendar",
   "/payroll",
   "/announcement",
   "/setup-manager",
