@@ -11,11 +11,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { holidayAPI, type Holiday, type HolidayPayload, type HolidayTypeRecord } from '../services/holidayApi';
 import { HolidayTypeManager } from '../components/HolidayTypeManager';
+import { toHolidayDateKey } from '@/utils/holidayDate';
 
 const emptyForm: HolidayPayload = { holiday_date: '', holiday_name: '', holiday_type_id: 0 };
 
 const formatHolidayDate = (dateValue: string) => {
-    const [year, month, day] = dateValue.slice(0, 10).split('-').map(Number);
+    const [year, month, day] = toHolidayDateKey(dateValue).split('-').map(Number);
     return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day)));
 };
 
@@ -87,7 +88,7 @@ const HolidaySetup = () => {
 
     const editHoliday = (holiday: Holiday) => {
         setEditingId(holiday.id);
-        setForm({ holiday_date: holiday.holiday_date.slice(0, 10), holiday_name: holiday.holiday_name, holiday_type_id: holiday.holiday_type_id });
+        setForm({ holiday_date: toHolidayDateKey(holiday.holiday_date), holiday_name: holiday.holiday_name, holiday_type_id: holiday.holiday_type_id });
         setIsHolidayDialogOpen(true);
     };
 

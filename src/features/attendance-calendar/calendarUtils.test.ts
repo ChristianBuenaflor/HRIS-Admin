@@ -104,6 +104,17 @@ describe("buildMonthCalendar", () => {
     });
   });
 
+  it("uses the Philippine date for UTC holiday timestamps", () => {
+    const days = build({
+      holidays: [holiday("2026-10-04T16:00:00.000000Z", "Founders Day")],
+    });
+
+    expect(day(days, "2026-10-05")).toMatchObject({
+      state: "holiday",
+      holiday: { holiday_name: "Founders Day" },
+    });
+  });
+
   it("uses approved leave before a holiday", () => {
     const days = build({
       leaves: [leave(1, "2026-10-05", "2026-10-05")],

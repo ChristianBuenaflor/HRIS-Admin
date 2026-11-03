@@ -11,9 +11,10 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { HolidayTypeManager } from '../HolidayTypeManager';
 import type { HolidayFormData, StepComponentProps } from '../setupManagerTypes';
 import { holidayAPI, type Holiday, type HolidayTypeRecord } from '../../services/holidayApi';
+import { toHolidayDateKey } from '@/utils/holidayDate';
 
 const formatHolidayDate = (dateValue: string) => {
-    const [year, month, day] = dateValue.slice(0, 10).split('-').map(Number);
+    const [year, month, day] = toHolidayDateKey(dateValue).split('-').map(Number);
     return new Intl.DateTimeFormat(undefined, { year: 'numeric', month: 'numeric', day: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(year, month - 1, day)));
 };
 
@@ -38,7 +39,7 @@ export const HolidaysEventsStep = ({ setupData, setSetupData }: StepComponentPro
                 .map((holiday) => ({
                     id: holiday.id.toString(),
                     name: holiday.holiday_name,
-                    date: holiday.holiday_date.slice(0, 10),
+                    date: toHolidayDateKey(holiday.holiday_date),
                     type: typeof holiday.holiday_type === 'object' && holiday.holiday_type !== null ? holiday.holiday_type.type_name : holiday.holiday_type || '',
                     holidayTypeId: holiday.holiday_type_id,
                 })),

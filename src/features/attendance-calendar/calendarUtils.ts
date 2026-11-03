@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { toHolidayDateKey } from "@/utils/holidayDate";
 import type {
   AttendanceRecord,
   AttendanceStatus,
@@ -213,7 +214,7 @@ export function buildMonthCalendar({
   const holidayByDate = new Map<string, HolidayRecord>();
   for (const entry of holidays) {
     if (isFlagSet(entry.is_archived)) continue;
-    const dateKey = toDateKey(entry.holiday_date);
+    const dateKey = toHolidayDateKey(entry.holiday_date);
     if (dateKey) holidayByDate.set(dateKey, entry);
   }
 

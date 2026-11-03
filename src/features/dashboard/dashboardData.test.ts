@@ -504,7 +504,7 @@ describe("pickUpcomingHolidays", () => {
         {
           id: 2,
           holiday_name: "Later",
-          holiday_date: "2026-11-01T00:00:00.000000Z",
+          holiday_date: "2026-11-01T16:00:00.000000Z",
           holiday_type: { type_name: "Special" },
           is_archived: false,
         },
@@ -529,7 +529,7 @@ describe("pickUpcomingHolidays", () => {
 
     expect(result).toEqual([
       { id: 3, name: "Soon", date: "2026-10-25", type: "Regular" },
-      { id: 2, name: "Later", date: "2026-11-01", type: "Special" },
+      { id: 2, name: "Later", date: "2026-11-02", type: "Special" },
     ]);
   });
 });

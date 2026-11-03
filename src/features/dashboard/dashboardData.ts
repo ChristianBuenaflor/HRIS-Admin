@@ -1,3 +1,5 @@
+import { toHolidayDateKey } from "@/utils/holidayDate";
+
 export interface DepartmentOverview {
   id: number | string;
   name: string;
@@ -644,7 +646,7 @@ export function pickUpcomingHolidays(
       return {
         id: (holiday.id as number | string | undefined) ?? String(holiday.holiday_name ?? ""),
         name: String(holiday.holiday_name ?? "").trim(),
-        date: toDateKey(holiday.holiday_date),
+        date: toHolidayDateKey(holiday.holiday_date),
         type: String(holidayType?.type_name ?? holiday.holiday_type ?? "Holiday").trim(),
       };
     })
