@@ -1336,10 +1336,6 @@ export function PayrollProcessing() {
                   <TableHeader className="bg-muted/50">
                     <TableRow>
                       <TableHead className="min-w-[200px]">Employee</TableHead>
-                      <TableHead className="min-w-[150px]">
-                        Department
-                      </TableHead>
-                      <TableHead className="min-w-[120px]">Position</TableHead>
                       <TableHead className="min-w-[100px]">
                         Daily Rate
                       </TableHead>
@@ -1363,7 +1359,7 @@ export function PayrollProcessing() {
                     {periodDetails.length === 0 ? (
                       <TableRow>
                         <TableCell
-                          colSpan={12}
+                          colSpan={10}
                           className="text-center py-8 text-muted-foreground"
                         >
                           <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
@@ -1387,12 +1383,6 @@ export function PayrollProcessing() {
                               </span>
                             </div>
                           </TableCell>
-                          <TableCell className="min-w-[150px]">
-                            {record.employee?.department || "N/A"}
-                          </TableCell>
-                          <TableCell className="min-w-[120px]">
-                            {record.employee?.position || "N/A"}
-                          </TableCell>
                           <TableCell className="min-w-[100px]">
                             ₱{formatMoney(record.attendance.daily_rate)}
                           </TableCell>
@@ -1414,14 +1404,16 @@ export function PayrollProcessing() {
                           <TableCell className="min-w-[140px] font-semibold">
                             ₱{formatMoney(record.payroll.net_pay)}
                           </TableCell>
-                          <TableCell className="min-w-[200px]">
+                          <TableCell className="w-[180px] max-w-[180px]">
                             {record.remarks ? (
-                              <div className="max-w-[200px]">
+                              <div className="max-w-[180px]">
                                 <p
-                                  className="text-sm line-clamp-2"
+                                  className="text-sm truncate"
                                   title={record.remarks}
                                 >
-                                  {record.remarks}
+                                  {record.remarks.length > 50
+                                    ? `${record.remarks.slice(0, 50)}…`
+                                    : record.remarks}
                                 </p>
                               </div>
                             ) : (

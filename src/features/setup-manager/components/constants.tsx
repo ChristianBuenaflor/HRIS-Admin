@@ -5,7 +5,6 @@ import {
     Calendar,
     Gift,
     MapPin,
-    CalendarDays,
     ChevronsUp,
     CreditCard,
 } from 'lucide-react';
@@ -20,7 +19,6 @@ export const setupSteps = [
     { id: 'benefits', label: 'Benefits\n(deductions)', icon: Gift },
     { id: 'allowance', label: 'Allowance\n(Additional)', icon: ChevronsUp },
     { id: 'loans', label: 'Loan Types', icon: CreditCard },
-    { id: 'holidays', label: 'Holidays', icon: CalendarDays },
 ];
 
 export const defaultSetupData = {

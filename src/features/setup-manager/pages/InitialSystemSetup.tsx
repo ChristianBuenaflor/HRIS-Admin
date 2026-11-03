@@ -16,7 +16,6 @@ import { EmploymentTypesStep } from '../../setup-manager/components/steps/Employ
 import { WorkLocationsStep } from '../../setup-manager/components/steps/WorkLocationsStep';
 import { AllowanceStep } from '../../setup-manager/components/steps/AllowanceStep';
 import { LoanTypesStep } from '../../setup-manager/components/steps/LoanTypesStep';
-import { HolidaysEventsStep } from '../../setup-manager/components/steps/HolidaysEventsStep';
 
 
 const SetupManager = () => {
@@ -117,8 +116,6 @@ const SetupManager = () => {
                 return <AllowanceStep setupData={setupData} setSetupData={setSetupData} />;
             case 'loans':
                 return <LoanTypesStep setupData={setupData} setSetupData={setSetupData} />;
-            case 'holidays':
-                return <HolidaysEventsStep setupData={setupData} setSetupData={setSetupData} />;
             default:
                 return null;
         }

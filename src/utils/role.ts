@@ -86,7 +86,7 @@ export function isAdmin(): boolean {
 }
 
 export function isAdminAllowedMenu(menuId: string): boolean {
-  const allowed = new Set(["dashboard", "attendance-leave", "attendance-calendar", "payroll", "announcement", "setup"]);
+  const allowed = new Set(["dashboard", "employees", "attendance-leave", "attendance-calendar", "payroll", "announcement", "setup"]);
   return allowed.has(menuId);
 }
 
@@ -94,11 +94,13 @@ export function isAdminAllowedRoute(path: string): boolean {
   const normalized = path.replace(/\/+$/, "").toLowerCase();
   const allowedExact = new Set([
     "dashboard",
+    "employees",
     "attendance-leaving",
     "attendance-calendar",
     "payroll",
     "announcement",
     "setup-manager",
+    "setup/initial",
     "setup/holidays",
   ]);
   const segment = normalized.replace(/^\//, "");
@@ -108,7 +110,7 @@ export function isAdminAllowedRoute(path: string): boolean {
 }
 
 export function isAdminAllowedSetupCard(cardId: string): boolean {
-  return cardId === "holidays";
+  return cardId === "initial" || cardId === "holidays";
 }
 
 export function hasRouteAccess(path: string): boolean {
