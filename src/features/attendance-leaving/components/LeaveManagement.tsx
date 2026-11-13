@@ -66,6 +66,16 @@ interface LeaveBalance {
     used_days: number;
     remaining_days: number;
     is_paid: boolean;
+    leave_history?: LeaveHistory[];
+}
+
+interface LeaveHistory {
+    leave_id: number;
+    employee_leave_type_id?: number;
+    start_date: string;
+    end_date: string;
+    total_days: number;
+    status: string;
 }
 
 interface LeaveBalanceSummary {
@@ -82,6 +92,7 @@ interface EmployeeLeaveBalance {
     last_name: string;
     leave_balances: LeaveBalance[];
     summary: LeaveBalanceSummary;
+    leave_history?: LeaveHistory[];
 }
 
 interface LeaveBalancePagination {
@@ -98,6 +109,12 @@ interface LeaveBalanceResponse {
     pagination: LeaveBalancePagination;
 }
 
+interface EmployeeLeaveBalanceResponse {
+    isSuccess: boolean;
+    message: string;
+    data: EmployeeLeaveBalance;
+}
+
 const LeaveManagement = () => {
     const [activeTab, setActiveTab] = useState('requests');
     const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
@@ -111,6 +128,8 @@ const LeaveManagement = () => {
     const [leaveBalances, setLeaveBalances] = useState<EmployeeLeaveBalance[]>([]);
     const [selectedBalance, setSelectedBalance] = useState<EmployeeLeaveBalance | null>(null);
     const [isBalanceDialogOpen, setIsBalanceDialogOpen] = useState(false);
+    const [balanceDetailsLoading, setBalanceDetailsLoading] = useState(false);
+    const [balanceDetailsError, setBalanceDetailsError] = useState<string | null>(null);
     const [balancesLoading, setBalancesLoading] = useState(false);
     const [balancesError, setBalancesError] = useState<string | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
@@ -187,6 +206,30 @@ const LeaveManagement = () => {
             setBalancesError('Failed to fetch employee leave balances');
         } finally {
             setBalancesLoading(false);
+        }
+    };
+
+    const fetchEmployeeLeaveBalance = async (employeeId: number) => {
+        setBalanceDetailsLoading(true);
+        setBalanceDetailsError(null);
+        try {
+            const response = await fetch(`${API_BASE_URL}/leave-balance/${employeeId}`, {
+                headers: getAuthHeaders(),
+            });
+
+            const data: EmployeeLeaveBalanceResponse = await response.json();
+            if (!response.ok || !data.isSuccess) {
+                throw new Error(data.message || `HTTP error! status: ${response.status}`);
+            }
+
+            setSelectedBalance(data.data);
+        } catch (err) {
+            console.error('Error fetching employee leave balance details:', err);
+            setBalanceDetailsError(
+                err instanceof Error ? err.message : 'Failed to fetch employee leave balance details'
+            );
+        } finally {
+            setBalanceDetailsLoading(false);
         }
     };
 
@@ -677,7 +720,9 @@ const LeaveManagement = () => {
                                                             size="sm"
                                                             onClick={() => {
                                                                 setSelectedBalance(emp);
+                                                                setBalanceDetailsError(null);
                                                                 setIsBalanceDialogOpen(true);
+                                                                fetchEmployeeLeaveBalance(emp.id);
                                                             }}
                                                         >
                                                             <Eye className="h-4 w-4" />
@@ -821,14 +866,32 @@ const LeaveManagement = () => {
 
             {/* Employee Leave Balance Details Dialog */}
             <Dialog open={isBalanceDialogOpen} onOpenChange={setIsBalanceDialogOpen}>
-                <DialogContent className="sm:max-w-[550px]">
+                <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>Leave Balance Details</DialogTitle>
                         <DialogDescription>
-                            Allocated, used, and remaining days per leave type
+                            Allocated, used, and remaining days per leave type, including leave history
                         </DialogDescription>
                     </DialogHeader>
-                    {selectedBalance && (
+                    {balanceDetailsLoading ? (
+                        <div className="flex justify-center py-8">
+                            <RefreshCw className="h-6 w-6 animate-spin" />
+                        </div>
+                    ) : balanceDetailsError ? (
+                        <div className="text-center text-red-500">
+                            <p>{balanceDetailsError}</p>
+                            {selectedBalance && (
+                                <Button
+                                    variant="outline"
+                                    className="mt-4"
+                                    onClick={() => fetchEmployeeLeaveBalance(selectedBalance.id)}
+                                >
+                                    <RefreshCw className="mr-2 h-4 w-4" />
+                                    Retry
+                                </Button>
+                            )}
+                        </div>
+                    ) : selectedBalance && (
                         <div className="space-y-4">
                             <div className="flex items-center space-x-4">
                                 <Avatar className="h-12 w-12">
@@ -884,6 +947,22 @@ const LeaveManagement = () => {
                                             <span>Remaining: <strong>{b.remaining_days}</strong></span>
                                         </div>
                                         <Progress value={getBalanceUsagePercent(b)} className="h-2" />
+                                        <div className="space-y-2 border-t pt-2">
+                                            <p className="text-xs font-medium text-muted-foreground">Leave history</p>
+                                            {(b.leave_history ?? []).length > 0 ? (
+                                                (b.leave_history ?? []).map((leave) => (
+                                                    <div key={leave.leave_id} className="flex items-center justify-between gap-3 text-xs">
+                                                        <span>
+                                                            {format(new Date(leave.start_date), 'MMM d, yyyy')} – {format(new Date(leave.end_date), 'MMM d, yyyy')}
+                                                            {' · '}{leave.total_days} day{leave.total_days === 1 ? '' : 's'}
+                                                        </span>
+                                                        <Badge variant={getStatusColor(leave.status)}>{leave.status}</Badge>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <p className="text-xs text-muted-foreground">No leave history.</p>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                                 {selectedBalance.leave_balances.length === 0 && (
